@@ -6,14 +6,13 @@ import (
 	"monkey/token"
 )
 
+type expectedToken struct {
+	expectedType    token.TokenType
+	expectedLiteral string
+}
+
 func TestNextToken(t *testing.T) {
-
-	input := `=+(){},;`
-
-	tests := []struct {
-		expectedType    token.TokenType
-		expectedLiteral string
-	}{
+	testLexing(t, `=+(){},;`, []expectedToken{
 		{token.ASSIGN, "="},
 		{token.PLUS, "+"},
 		{token.LPAREN, "("},
@@ -23,11 +22,67 @@ func TestNextToken(t *testing.T) {
 		{token.COMMA, ","},
 		{token.SEMICOLON, ";"},
 		{token.EOF, ""},
-	}
+	})
+}
 
+func TestNextTokenOnMonkey(t *testing.T) {
+	input := `let five = 5;
+
+let ten = 10;
+
+let add = fn( x, y) {
+	x + y;
+};
+
+let result = add( five, ten);
+`
+
+	testLexing(t, input, []expectedToken{
+		{token.LET, "let"},
+		{token.IDENT, "five"},
+		{token.ASSIGN, "="},
+		{token.INT, "5"},
+		{token.SEMICOLON, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "ten"},
+		{token.ASSIGN, "="},
+		{token.INT, "10"},
+		{token.SEMICOLON, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "add"},
+		{token.ASSIGN, "="},
+		{token.FUNCTION, "fn"},
+		{token.LPAREN, "("},
+		{token.IDENT, "x"},
+		{token.COMMA, ","},
+		{token.IDENT, "y"},
+		{token.RPAREN, ")"},
+		{token.LBRACE, "{"},
+		{token.IDENT, "x"},
+		{token.PLUS, "+"},
+		{token.IDENT, "y"},
+		{token.SEMICOLON, ";"},
+		{token.RBRACE, "}"},
+		{token.SEMICOLON, ";"},
+		{token.LET, "let"},
+		{token.IDENT, "result"},
+		{token.ASSIGN, "="},
+		{token.IDENT, "add"},
+		{token.LPAREN, "("},
+		{token.IDENT, "five"},
+		{token.COMMA, ","},
+		{token.IDENT, "ten"},
+		{token.RPAREN, ")"},
+		{token.SEMICOLON, ";"},
+		{token.EOF, ""},
+	})
+}
+
+func testLexing(t *testing.T, input string, expectedTokens []expectedToken) {
+	t.Helper()
 	l := New(input)
 
-	for i, tt := range tests {
+	for i, tt := range expectedTokens {
 		tok := l.NextToken()
 
 		if tok.Type != tt.expectedType {
