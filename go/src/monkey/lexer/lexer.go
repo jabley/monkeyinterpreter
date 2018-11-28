@@ -2,6 +2,7 @@ package lexer
 
 import "monkey/token"
 
+// Lexer used to tokenise the input
 type Lexer struct {
 	input        string
 	position     int // current position in input (points to current char)
@@ -10,12 +11,14 @@ type Lexer struct {
 	ch byte // current char under examination
 }
 
+// New creates a new Lexer ready to tokenise the input
 func New(input string) *Lexer {
 	l := &Lexer{input: input}
 	l.readChar()
 	return l
 }
 
+// NextToken returns the next token from processing the input.
 func (l *Lexer) NextToken() token.Token {
 	var tok token.Token
 
@@ -25,41 +28,41 @@ func (l *Lexer) NextToken() token.Token {
 	case '=':
 		if l.peekChar() == '=' {
 			l.readChar()
-			tok = token.Token{Type: token.EQ, Literal: "=="}
+			tok = token.Token{Type: token.Eq, Literal: "=="}
 		} else {
-			tok = newToken(token.ASSIGN, l.ch)
+			tok = newToken(token.Assign, l.ch)
 		}
 	case ';':
-		tok = newToken(token.SEMICOLON, l.ch)
+		tok = newToken(token.SemiColon, l.ch)
 	case '(':
-		tok = newToken(token.LPAREN, l.ch)
+		tok = newToken(token.LParen, l.ch)
 	case ')':
-		tok = newToken(token.RPAREN, l.ch)
+		tok = newToken(token.RParen, l.ch)
 	case ',':
-		tok = newToken(token.COMMA, l.ch)
+		tok = newToken(token.Comma, l.ch)
 	case '+':
-		tok = newToken(token.PLUS, l.ch)
+		tok = newToken(token.Plus, l.ch)
 	case '-':
-		tok = newToken(token.MINUS, l.ch)
+		tok = newToken(token.Minus, l.ch)
 	case '!':
 		if l.peekChar() == '=' {
 			l.readChar()
-			tok = token.Token{Type: token.NOT_EQ, Literal: "!="}
+			tok = token.Token{Type: token.NotEq, Literal: "!="}
 		} else {
-			tok = newToken(token.BANG, l.ch)
+			tok = newToken(token.Bang, l.ch)
 		}
 	case '*':
-		tok = newToken(token.ASTERISK, l.ch)
+		tok = newToken(token.Asterisk, l.ch)
 	case '/':
-		tok = newToken(token.SLASH, l.ch)
+		tok = newToken(token.Slash, l.ch)
 	case '<':
-		tok = newToken(token.LT, l.ch)
+		tok = newToken(token.Lt, l.ch)
 	case '>':
-		tok = newToken(token.GT, l.ch)
+		tok = newToken(token.Gt, l.ch)
 	case '{':
-		tok = newToken(token.LBRACE, l.ch)
+		tok = newToken(token.LBrace, l.ch)
 	case '}':
-		tok = newToken(token.RBRACE, l.ch)
+		tok = newToken(token.RBrace, l.ch)
 	case 0:
 		tok.Literal = ""
 		tok.Type = token.EOF
@@ -70,10 +73,10 @@ func (l *Lexer) NextToken() token.Token {
 			return tok
 		} else if isDigit(l.ch) {
 			tok.Literal = l.readNumber()
-			tok.Type = token.INT
+			tok.Type = token.Int
 			return tok
 		} else {
-			tok = newToken(token.ILLEGAL, l.ch)
+			tok = newToken(token.Illegal, l.ch)
 		}
 	}
 
@@ -90,7 +93,7 @@ func isLetter(ch byte) bool {
 	return 'a' <= ch && ch <= 'z' || 'A' <= ch && ch <= 'Z' || ch == '_'
 }
 
-func newToken(tokenType token.TokenType, ch byte) token.Token {
+func newToken(tokenType token.Type, ch byte) token.Token {
 	return token.Token{Type: tokenType, Literal: string(ch)}
 }
 

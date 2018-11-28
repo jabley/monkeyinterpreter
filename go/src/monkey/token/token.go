@@ -1,65 +1,69 @@
 package token
 
-type TokenType string
+// Type is alias for supported tokens
+type Type string
 
+// Type enums for our language
 const (
-	ILLEGAL = "ILLEGAL"
+	Illegal = "ILLEGAL"
 	EOF     = "EOF"
 
 	// identifier + literals
-	IDENT = "IDENT" // add, foobar, x, y, ...
-	INT   = "INT"   // 1343456
+	Ident = "IDENT" // add, foobar, x, y, ...
+	Int   = "INT"   // 1343456
 
 	// Operators
-	ASSIGN   = "="
-	PLUS     = "+"
-	MINUS    = "-"
-	BANG     = "!"
-	ASTERISK = "*"
-	SLASH    = "/"
+	Assign   = "="
+	Plus     = "+"
+	Minus    = "-"
+	Bang     = "!"
+	Asterisk = "*"
+	Slash    = "/"
 
-	LT     = "<"
-	GT     = ">"
-	EQ     = "=="
-	NOT_EQ = "!="
+	Lt    = "<"
+	Gt    = ">"
+	Eq    = "=="
+	NotEq = "!="
 
 	// Delimiters
-	COMMA     = ","
-	SEMICOLON = ";"
+	Comma     = ","
+	SemiColon = ";"
 
-	LPAREN = "("
-	RPAREN = ")"
-	LBRACE = "{"
-	RBRACE = "}"
+	LParen = "("
+	RParen = ")"
+	LBrace = "{"
+	RBrace = "}"
 
 	// Keywords
-	FUNCTION = "FUNCTION"
-	LET      = "LET"
-	IF       = "IF"
-	ELSE     = "ELSE"
-	TRUE     = "TRUE"
-	FALSE    = "FALSE"
-	RETURN   = "RETURN"
+	Function = "FUNCTION"
+	Let      = "LET"
+	If       = "IF"
+	Else     = "ELSE"
+	True     = "TRUE"
+	False    = "FALSE"
+	Return   = "RETURN"
 )
 
+// Token is the atom returned by the Lexer.
 type Token struct {
-	Type    TokenType
+	Type    Type
 	Literal string
 }
 
-var keywords = map[string]TokenType{
-	"fn":     FUNCTION,
-	"let":    LET,
-	"if":     IF,
-	"else":   ELSE,
-	"true":   TRUE,
-	"false":  FALSE,
-	"return": RETURN,
+var keywords = map[string]Type{
+	"fn":     Function,
+	"let":    Let,
+	"if":     If,
+	"else":   Else,
+	"true":   True,
+	"false":  False,
+	"return": Return,
 }
 
-func LookupIdent(ident string) TokenType {
+// LookupIdent checks whether the indentifier is a keyword.
+func LookupIdent(ident string) Type {
 	if tok, ok := keywords[ident]; ok {
 		return tok
 	}
-	return IDENT
+	return Ident
 }
