@@ -1,5 +1,7 @@
 package ast
 
+import "monkey/token"
+
 // Node is the basic interface for a item in the Abstract Syntax Tree
 type Node interface {
 	TokenLiteral() string
@@ -28,4 +30,37 @@ func (p *Program) TokenLiteral() string {
 		return p.Statements[0].TokenLiteral()
 	}
 	return ""
+}
+
+// LetStatement is a `let x = foo;` statement
+type LetStatement struct {
+	Token token.Token // the token.Let token
+	Name  *Identifier
+	Value Expression
+}
+
+func (ls *LetStatement) statementNode() {
+
+}
+
+// TokenLiteral Node implementation
+func (ls *LetStatement) TokenLiteral() string {
+	return ls.Token.Literal
+}
+
+// Identifier is an Expression. Identifier in LetStatement isn't an Expression
+// because it doesn't produce a value. But Identifiers in other parts might be;
+// eg a function name.
+type Identifier struct {
+	Token token.Token // the token.Identifier token
+	Value string
+}
+
+func (i *Identifier) expressionNode() {
+
+}
+
+// TokenLiteral Node implementation
+func (i *Identifier) TokenLiteral() string {
+	return i.Token.Literal
 }
