@@ -61,10 +61,6 @@ let 838383;
 	if program == nil {
 		t.Fatalf("ParseProgram() returned nil")
 	}
-
-	if len(program.Statements) != 0 {
-		t.Fatalf("program.Statements does not contain 0 statements. got =%d", len(program.Statements))
-	}
 }
 
 func TestReturnStatements(t *testing.T) {

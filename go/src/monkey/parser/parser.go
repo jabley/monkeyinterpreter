@@ -7,17 +7,40 @@ import (
 	"monkey/token"
 )
 
+// Precedence operators
+const (
+	_ int = iota
+	LOWEST
+	EQUALS      // ==
+	LESSGREATER // < or >
+	SUM         // +
+	PRODUCT     // *
+	PREFIX      // -X or !X
+	CALL        // myFunction(X)
+)
+
+type (
+	prefixParseFn func() ast.Expression
+	infixParseFn  func(ast.Expression) ast.Expression
+)
+
 // Parser is the parser for Monkey programs
 type Parser struct {
 	l         *lexer.Lexer
 	curToken  token.Token
 	peekToken token.Token
 	errors    []string
+
+	prefixParseFns map[token.Type]prefixParseFn
+	infixParseFns  map[token.Type]infixParseFn
 }
 
 // New creates a new Parser which wraps the provided Lexer
 func New(l *lexer.Lexer) *Parser {
 	p := &Parser{l: l}
+
+	p.prefixParseFns = make(map[token.Type]prefixParseFn)
+	p.registerPrefix(token.Ident, p.parseIdentifier)
 
 	// Read 2 tokens so that curToken and peekToken are both set
 	p.nextToken()
@@ -82,8 +105,36 @@ func (p *Parser) parseStatement() ast.Statement {
 	case token.Return:
 		return p.parseReturnStatement()
 	default:
+		return p.parseExpressionStatement()
+	}
+}
+
+func (p *Parser) parseExpression(precedence int) ast.Expression {
+	prefix := p.prefixParseFns[p.curToken.Type]
+
+	if prefix == nil {
 		return nil
 	}
+
+	leftExpr := prefix()
+
+	return leftExpr
+}
+
+func (p *Parser) parseExpressionStatement() ast.Statement {
+	stmt := &ast.ExpressionStatement{Token: p.curToken}
+
+	stmt.Expression = p.parseExpression(LOWEST)
+
+	if p.peekTokenIs(token.SemiColon) {
+		p.nextToken()
+	}
+
+	return stmt
+}
+
+func (p *Parser) parseIdentifier() ast.Expression {
+	return &ast.Identifier{Token: p.curToken, Value: p.curToken.Literal}
 }
 
 func (p *Parser) parseLetStatement() ast.Statement {
@@ -120,4 +171,12 @@ func (p *Parser) parseReturnStatement() ast.Statement {
 	}
 
 	return stmt
+}
+
+func (p *Parser) registerPrefix(tokenType token.Type, fn prefixParseFn) {
+	p.prefixParseFns[tokenType] = fn
+}
+
+func (p *Parser) registerInfix(tokenType token.Type, fn infixParseFn) {
+	p.infixParseFns[tokenType] = fn
 }
