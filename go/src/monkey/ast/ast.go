@@ -129,3 +129,26 @@ func (rs *ReturnStatement) String() string {
 func (rs *ReturnStatement) TokenLiteral() string {
 	return rs.Token.Literal
 }
+
+// ExpressionStatement is a general-purpose expression
+type ExpressionStatement struct {
+	Token      token.Token // the first token of the expression
+	Expression Expression
+}
+
+// String Node implementation
+func (es *ExpressionStatement) String() string {
+	if es.Expression != nil {
+		return es.Expression.String()
+	}
+	return ""
+}
+
+// TokenLiteral Node implementation
+func (es *ExpressionStatement) TokenLiteral() string {
+	return es.Token.Literal
+}
+
+func (es *ExpressionStatement) statementNode() {
+
+}
