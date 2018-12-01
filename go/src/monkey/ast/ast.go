@@ -47,6 +47,26 @@ func (p *Program) TokenLiteral() string {
 	return ""
 }
 
+// IntegerLiteral is a type of Node that is an int
+type IntegerLiteral struct {
+	Token token.Token
+	Value int64
+}
+
+// String Node implementation
+func (il *IntegerLiteral) String() string {
+	return il.Token.Literal
+}
+
+// TokenLiteral returns the result of the root Node
+func (il *IntegerLiteral) TokenLiteral() string {
+	return il.Token.Literal
+}
+
+func (il *IntegerLiteral) expressionNode() {
+
+}
+
 // LetStatement is a `let x = foo;` statement
 type LetStatement struct {
 	Token token.Token // the token.Let token
