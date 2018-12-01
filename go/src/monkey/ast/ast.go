@@ -1,9 +1,13 @@
 package ast
 
-import "monkey/token"
+import (
+	"bytes"
+	"monkey/token"
+)
 
 // Node is the basic interface for a item in the Abstract Syntax Tree
 type Node interface {
+	String() string
 	TokenLiteral() string
 }
 
@@ -22,6 +26,17 @@ type Expression interface {
 // Program is a Monkey programme. Every valid Program is a series of Statements.
 type Program struct {
 	Statements []Statement
+}
+
+// String Node implementation
+func (p *Program) String() string {
+	var out bytes.Buffer
+
+	for _, s := range p.Statements {
+		out.WriteString(s.String())
+	}
+
+	return out.String()
 }
 
 // TokenLiteral returns the result of the root Node
@@ -43,6 +58,23 @@ func (ls *LetStatement) statementNode() {
 
 }
 
+// String Node implementation
+func (ls *LetStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(ls.TokenLiteral() + " ")
+	out.WriteString(ls.Name.String())
+	out.WriteString(" = ")
+
+	if ls.Value != nil {
+		out.WriteString(ls.Value.String())
+	}
+
+	out.WriteString(";")
+
+	return out.String()
+}
+
 // TokenLiteral Node implementation
 func (ls *LetStatement) TokenLiteral() string {
 	return ls.Token.Literal
@@ -60,6 +92,11 @@ func (i *Identifier) expressionNode() {
 
 }
 
+// String Node implementation
+func (i *Identifier) String() string {
+	return i.Value
+}
+
 // TokenLiteral Node implementation
 func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
@@ -72,6 +109,21 @@ type ReturnStatement struct {
 }
 
 func (rs *ReturnStatement) statementNode() {}
+
+// String Node implementation
+func (rs *ReturnStatement) String() string {
+	var out bytes.Buffer
+
+	out.WriteString(rs.TokenLiteral() + " ")
+
+	if rs.ReturnValue != nil {
+		out.WriteString(rs.ReturnValue.String())
+	}
+
+	out.WriteString(";")
+
+	return out.String()
+}
 
 // TokenLiteral Node implementation
 func (rs *ReturnStatement) TokenLiteral() string {
