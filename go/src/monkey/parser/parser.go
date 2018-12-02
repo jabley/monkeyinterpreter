@@ -72,6 +72,10 @@ func (p *Parser) ParseProgram() *ast.Program {
 	return program
 }
 
+func (p *Parser) addError(msg string) {
+	p.errors = append(p.errors, msg)
+}
+
 func (p *Parser) nextToken() {
 	p.curToken = p.peekToken
 	p.peekToken = p.l.NextToken()
@@ -83,7 +87,7 @@ func (p *Parser) curTokenIs(t token.Type) bool {
 
 func (p *Parser) peekError(t token.Type) {
 	msg := fmt.Sprintf("expected next token to be %s, got %s instead", t, p.peekToken.Type)
-	p.errors = append(p.errors, msg)
+	p.addError(msg)
 }
 
 func (p *Parser) peekTokenIs(t token.Type) bool {
@@ -113,7 +117,7 @@ func (p *Parser) parseStatement() ast.Statement {
 
 func (p *Parser) noPrefixParseFnError(t token.Type) {
 	msg := fmt.Sprintf("no prefix parse function for %s found", t)
-	p.errors = append(p.errors, msg)
+	p.addError(msg)
 }
 
 func (p *Parser) parseExpression(precedence int) ast.Expression {
@@ -151,7 +155,7 @@ func (p *Parser) parseIntegerLiteral() ast.Expression {
 	value, err := strconv.ParseInt(p.curToken.Literal, 0, 64)
 	if err != nil {
 		msg := fmt.Sprintf("could not parse %q as integer", p.curToken.Literal)
-		p.errors = append(p.errors, msg)
+		p.addError(msg)
 		return nil
 	}
 
