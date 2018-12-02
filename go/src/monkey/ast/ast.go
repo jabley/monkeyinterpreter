@@ -122,6 +122,33 @@ func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
 }
 
+// InfixExpression is expressions involving binary operators like `X+Y`, `X*Y` etc
+type InfixExpression struct {
+	Token    token.Token // The operator token, e.g. +
+	Left     Expression
+	Operator string
+	Right    Expression
+}
+
+// String Node implementation
+func (ie *InfixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(ie.Left.String())
+	out.WriteString(" " + ie.Operator + " ")
+	out.WriteString(ie.Right.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// TokenLiteral Node implementation
+func (ie *InfixExpression) TokenLiteral() string {
+	return ie.Token.Literal
+}
+func (ie *InfixExpression) expressionNode() {}
+
 // PrefixExpression is a Node for `!X` or `-X`
 type PrefixExpression struct {
 	Right    Expression
