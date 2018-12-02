@@ -122,6 +122,34 @@ func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
 }
 
+// PrefixExpression is a Node for `!X` or `-X`
+type PrefixExpression struct {
+	Right    Expression
+	Operator string
+	Token    token.Token
+}
+
+// String Node implementation
+func (pe *PrefixExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(pe.Operator)
+	out.WriteString(pe.Right.String())
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// TokenLiteral Node implementation
+func (pe *PrefixExpression) TokenLiteral() string {
+	return pe.Token.Literal
+}
+
+func (pe *PrefixExpression) expressionNode() {
+
+}
+
 // ReturnStatement is a `return foo;` statement
 type ReturnStatement struct {
 	Token       token.Token // the 'return' token
