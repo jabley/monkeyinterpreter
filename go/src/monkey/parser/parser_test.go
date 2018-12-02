@@ -55,8 +55,8 @@ let 838383;
 
 	program := p.ParseProgram()
 
-	if len(p.Errors()) != 3 {
-		t.Fatalf("Parser.Errors does not contain 3 errors. got =%d", len(p.Errors()))
+	if len(p.Errors()) != 4 {
+		t.Fatalf("Parser.Errors does not contain 4 errors. got =%d", len(p.Errors()))
 	}
 
 	if program == nil {
