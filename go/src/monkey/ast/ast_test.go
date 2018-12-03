@@ -90,3 +90,73 @@ func TestPrefixString(t *testing.T) {
 		t.Errorf("program.String() wrong. got=%q", program.String())
 	}
 }
+
+func TestIfString(t *testing.T) {
+	program := &Program{
+		Statements: []Statement{
+			&ExpressionStatement{
+				Expression: &IfExpression{
+					Token: token.Token{Type: token.Ident, Literal: "if"},
+					Condition: &Identifier{
+						Token: token.Token{Type: token.Ident, Literal: "foo"},
+						Value: "foo",
+					},
+					Consequence: &BlockStatement{
+						Statements: []Statement{
+							&ExpressionStatement{
+								Expression: &Identifier{
+									Token: token.Token{Type: token.Ident, Literal: "bar"},
+									Value: "bar",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if program.String() != "if (foo) { bar }" {
+		t.Errorf("program.String() wrong. got=%q", program.String())
+	}
+}
+
+func TestIfElseString(t *testing.T) {
+	program := &Program{
+		Statements: []Statement{
+			&ExpressionStatement{
+				Expression: &IfExpression{
+					Token: token.Token{Type: token.Ident, Literal: "if"},
+					Condition: &Identifier{
+						Token: token.Token{Type: token.Ident, Literal: "foo"},
+						Value: "foo",
+					},
+					Consequence: &BlockStatement{
+						Statements: []Statement{
+							&ExpressionStatement{
+								Expression: &Identifier{
+									Token: token.Token{Type: token.Ident, Literal: "bar"},
+									Value: "bar",
+								},
+							},
+						},
+					},
+					Alternative: &BlockStatement{
+						Statements: []Statement{
+							&ExpressionStatement{
+								Expression: &Identifier{
+									Token: token.Token{Type: token.Ident, Literal: "baz"},
+									Value: "baz",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if program.String() != "if (foo) { bar } else { baz }" {
+		t.Errorf("program.String() wrong. got=%q", program.String())
+	}
+}
