@@ -3,6 +3,7 @@ package ast
 import (
 	"bytes"
 	"monkey/token"
+	"strings"
 )
 
 // Node is the basic interface for a item in the Abstract Syntax Tree
@@ -92,6 +93,40 @@ func (b *Boolean) TokenLiteral() string {
 func (b *Boolean) expressionNode() {
 
 }
+
+// FunctionLiteral adds support for `fn <parameters> <block statement>`
+type FunctionLiteral struct {
+	Token      token.Token // The `fn` token
+	Parameters []*Identifier
+	Body       *BlockStatement
+}
+
+// String Node implementation
+func (fl *FunctionLiteral) String() string {
+	var out bytes.Buffer
+
+	params := make([]string, len(fl.Parameters))
+
+	for i, p := range fl.Parameters {
+		params[i] = p.String()
+	}
+
+	out.WriteString(fl.TokenLiteral())
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") { ")
+	out.WriteString(fl.Body.String())
+	out.WriteString(" }")
+
+	return out.String()
+}
+
+// TokenLiteral returns the result of the root Node
+func (fl *FunctionLiteral) TokenLiteral() string {
+	return fl.Token.Literal
+}
+
+func (fl *FunctionLiteral) expressionNode() {}
 
 // IfExpression adds support for `if (<condition>) <consequence? [else <alternative>]`
 type IfExpression struct {

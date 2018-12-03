@@ -160,3 +160,43 @@ func TestIfElseString(t *testing.T) {
 		t.Errorf("program.String() wrong. got=%q", program.String())
 	}
 }
+
+func TestFunctionString(t *testing.T) {
+	program := &Program{
+		Statements: []Statement{
+			&ExpressionStatement{
+				Expression: &FunctionLiteral{
+					Token: token.Token{Type: token.Function, Literal: "fn"},
+					Parameters: []*Identifier{
+						&Identifier{
+							Token: token.Token{Type: token.Ident, Literal: "x"},
+							Value: "x",
+						},
+					},
+					Body: &BlockStatement{
+						Statements: []Statement{
+							&ExpressionStatement{
+								Expression: &InfixExpression{
+									Token: token.Token{Type: token.Plus, Literal: "+"},
+									Left: &Identifier{
+										Token: token.Token{Type: token.Ident, Literal: "x"},
+										Value: "x",
+									},
+									Operator: "+",
+									Right: &IntegerLiteral{
+										Token: token.Token{Type: token.Ident, Literal: "2"},
+										Value: 2,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	if program.String() != "fn(x) { (x + 2) }" {
+		t.Errorf("program.String() wrong. got=%q", program.String())
+	}
+}
