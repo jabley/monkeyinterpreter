@@ -47,6 +47,32 @@ func (p *Program) TokenLiteral() string {
 	return ""
 }
 
+// BlockStatement allows for blocks of code (as part of an `if` expression, for example)
+type BlockStatement struct {
+	Token      token.Token // the `{` token
+	Statements []Statement
+}
+
+// String Node implementation
+func (bs *BlockStatement) String() string {
+	var out bytes.Buffer
+
+	for _, s := range bs.Statements {
+		out.WriteString(s.String())
+	}
+
+	return out.String()
+}
+
+// TokenLiteral returns the result of the root Node
+func (bs *BlockStatement) TokenLiteral() string {
+	return bs.Token.Literal
+}
+
+func (bs *BlockStatement) expressionNode() {
+
+}
+
 // Boolean adds support for literal booleans
 type Boolean struct {
 	Token token.Token
@@ -64,6 +90,40 @@ func (b *Boolean) TokenLiteral() string {
 }
 
 func (b *Boolean) expressionNode() {
+
+}
+
+// IfExpression adds support for `if (<condition>) <consequence? [else <alternative>]`
+type IfExpression struct {
+	Token       token.Token // The `if` keyword token
+	Condition   Expression
+	Consequence *BlockStatement
+	Alternative *BlockStatement
+}
+
+// String Node implementation
+func (ie *IfExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("if")
+	out.WriteString(ie.Condition.String())
+	out.WriteString(" ")
+	out.WriteString(ie.Consequence.String())
+
+	if ie.Alternative != nil {
+		out.WriteString("else ")
+		out.WriteString(ie.Alternative.String())
+	}
+
+	return out.String()
+}
+
+// TokenLiteral returns the result of the root Node
+func (ie *IfExpression) TokenLiteral() string {
+	return ie.Token.Literal
+}
+
+func (ie *IfExpression) expressionNode() {
 
 }
 
