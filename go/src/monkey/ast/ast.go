@@ -47,6 +47,7 @@ func (p *Program) TokenLiteral() string {
 	return ""
 }
 
+// Boolean adds support for literal booleans
 type Boolean struct {
 	Token token.Token
 	Value bool
