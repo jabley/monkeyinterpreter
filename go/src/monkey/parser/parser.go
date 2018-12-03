@@ -135,6 +135,8 @@ func (p *Parser) peekTokenIs(t token.Type) bool {
 	return p.peekToken.Type == t
 }
 
+// expectPeek peeks that the next token is the supplied type. If it is, then it
+// eats it and returns true. Otherwise it captures the error and returns false.
 func (p *Parser) expectPeek(t token.Type) bool {
 	if p.peekTokenIs(t) {
 		p.nextToken()
