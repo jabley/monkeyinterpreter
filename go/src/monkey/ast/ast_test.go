@@ -200,3 +200,33 @@ func TestFunctionString(t *testing.T) {
 		t.Errorf("program.String() wrong. got=%q", program.String())
 	}
 }
+
+func TestCallString(t *testing.T) {
+	program := &Program{
+		Statements: []Statement{
+			&ExpressionStatement{
+				Expression: &CallExpression{
+					Token: token.Token{Type: token.LParen, Literal: "("},
+					Arguments: []Expression{
+						&Identifier{
+							Token: token.Token{Type: token.Ident, Literal: "x"},
+							Value: "x",
+						},
+						&Identifier{
+							Token: token.Token{Type: token.Ident, Literal: "y"},
+							Value: "y",
+						},
+					},
+					Function: &Identifier{
+						Token: token.Token{Type: token.Ident, Literal: "foobar"},
+						Value: "foobar",
+					},
+				},
+			},
+		},
+	}
+
+	if program.String() != "foobar(x, y)" {
+		t.Errorf("program.String() wrong. got=%q", program.String())
+	}
+}

@@ -94,6 +94,35 @@ func (b *Boolean) expressionNode() {
 
 }
 
+// CallExpression adds support for `<expression>([<expression> [, <expression>] ])`
+type CallExpression struct {
+	Token     token.Token // The '(' token
+	Function  Expression  // Identifier or FunctionLiteral
+	Arguments []Expression
+}
+
+// String Node implementation
+func (ce *CallExpression) String() string {
+	var out bytes.Buffer
+
+	args := []string{}
+	for _, a := range ce.Arguments {
+		args = append(args, a.String())
+	}
+
+	out.WriteString(ce.Function.String())
+	out.WriteString("(")
+	out.WriteString(strings.Join(args, ", "))
+	out.WriteString(")")
+
+	return out.String()
+}
+
+// TokenLiteral returns the result of the root Node
+func (ce *CallExpression) TokenLiteral() string { return ce.Token.Literal }
+
+func (ce *CallExpression) expressionNode() {}
+
 // FunctionLiteral adds support for `fn <parameters> <block statement>`
 type FunctionLiteral struct {
 	Token      token.Token // The `fn` token
