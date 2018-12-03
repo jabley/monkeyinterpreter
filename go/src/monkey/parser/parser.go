@@ -59,6 +59,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.True, p.parseBoolean)
 	p.registerPrefix(token.False, p.parseBoolean)
 	p.registerPrefix(token.LParen, p.parseGroupedExpression)
+	p.registerPrefix(token.If, p.parseIfExpression)
 
 	p.infixParseFns = make(map[token.Type]infixParseFn)
 	p.registerInfix(token.Plus, p.parseInfixExpression)
@@ -160,6 +161,23 @@ func (p *Parser) noPrefixParseFnError(t token.Type) {
 	p.addError(msg)
 }
 
+func (p *Parser) parseBlockStatement() *ast.BlockStatement {
+	block := &ast.BlockStatement{Token: p.curToken}
+
+	block.Statements = []ast.Statement{}
+
+	p.nextToken() // consume the LBrace
+
+	for !p.curTokenIs(token.RBrace) && !p.curTokenIs(token.EOF) {
+		if stmt := p.parseStatement(); stmt != nil {
+			block.Statements = append(block.Statements, stmt)
+		}
+		p.nextToken() // consume the RBrace?
+	}
+
+	return block
+}
+
 func (p *Parser) parseBoolean() ast.Expression {
 	return &ast.Boolean{
 		Token: p.curToken,
@@ -209,6 +227,31 @@ func (p *Parser) parseGroupedExpression() ast.Expression {
 	if !p.expectPeek(token.RParen) {
 		return nil
 	}
+
+	return exp
+}
+
+func (p *Parser) parseIfExpression() ast.Expression {
+	exp := &ast.IfExpression{
+		Token: p.curToken,
+	}
+
+	if !p.expectPeek(token.LParen) {
+		return nil
+	}
+
+	p.nextToken() // slurp the `(`
+	exp.Condition = p.parseExpression(LOWEST)
+
+	if !p.expectPeek(token.RParen) {
+		return nil
+	}
+
+	if !p.expectPeek(token.LBrace) {
+		return nil
+	}
+
+	exp.Consequence = p.parseBlockStatement()
 
 	return exp
 }
