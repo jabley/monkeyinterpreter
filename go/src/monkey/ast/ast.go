@@ -47,6 +47,25 @@ func (p *Program) TokenLiteral() string {
 	return ""
 }
 
+type Boolean struct {
+	Token token.Token
+	Value bool
+}
+
+// String Node implementation
+func (b *Boolean) String() string {
+	return b.TokenLiteral()
+}
+
+// TokenLiteral returns the result of the root Node
+func (b *Boolean) TokenLiteral() string {
+	return b.Token.Literal
+}
+
+func (b *Boolean) expressionNode() {
+
+}
+
 // IntegerLiteral is a type of Node that is an int
 type IntegerLiteral struct {
 	Token token.Token
