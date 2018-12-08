@@ -5,6 +5,12 @@ import (
 	"monkey/object"
 )
 
+// singleton reference value
+var (
+	FALSE = &object.Boolean{Value: false}
+	TRUE  = &object.Boolean{Value: true}
+)
+
 // Eval evaluates the ast.Node
 func Eval(node ast.Node) object.Object {
 	switch node := node.(type) {
@@ -15,7 +21,7 @@ func Eval(node ast.Node) object.Object {
 	case *ast.IntegerLiteral:
 		return &object.Integer{Value: node.Value}
 	case *ast.Boolean:
-		return &object.Boolean{Value: node.Value}
+		return nativeBoolToBooleanObject(node.Value)
 	}
 
 	return nil
@@ -29,4 +35,11 @@ func evalStatements(stmts []ast.Statement) object.Object {
 	}
 
 	return result
+}
+
+func nativeBoolToBooleanObject(b bool) object.Object {
+	if b {
+		return TRUE
+	}
+	return FALSE
 }
