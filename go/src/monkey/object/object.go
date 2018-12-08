@@ -7,6 +7,7 @@ type Type string
 
 // The different types of object supported.
 const (
+	BooleanObj = "BOOLEAN"
 	IntegerObj = "INTEGER"
 )
 
@@ -14,6 +15,21 @@ const (
 type Object interface {
 	Type() Type
 	Inspect() string
+}
+
+// Boolean is the boolean type in Monkey.
+type Boolean struct {
+	Value bool
+}
+
+// Inspect implementation of the Object interface
+func (b *Boolean) Inspect() string {
+	return fmt.Sprintf("%t", b.Value)
+}
+
+// Type implementation of the Object interface
+func (b *Boolean) Type() Type {
+	return BooleanObj
 }
 
 // Integer is the integer type in Monkey.
