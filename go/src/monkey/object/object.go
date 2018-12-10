@@ -9,6 +9,7 @@ type Type string
 const (
 	BooleanObj = "BOOLEAN"
 	IntegerObj = "INTEGER"
+	NullObj    = "NULL"
 )
 
 // Object is the common interface for our object system.
@@ -45,4 +46,17 @@ func (i *Integer) Inspect() string {
 // Type implementation of the Object interface
 func (i *Integer) Type() Type {
 	return IntegerObj
+}
+
+// Null is the Null type in Monkey.
+type Null struct{}
+
+// Inspect implementation of the Object interface
+func (n *Null) Inspect() string {
+	return "null"
+}
+
+// Type implementation of the Object interface
+func (n *Null) Type() Type {
+	return NullObj
 }

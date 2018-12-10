@@ -9,6 +9,8 @@ import (
 var (
 	FALSE = &object.Boolean{Value: false}
 	TRUE  = &object.Boolean{Value: true}
+
+	NULL = &object.Null{}
 )
 
 // Eval evaluates the ast.Node
@@ -40,6 +42,8 @@ func evalBangOperatorExpression(right object.Object) object.Object {
 		return FALSE
 	case FALSE:
 		return TRUE
+	case NULL:
+		return TRUE
 	default:
 		return FALSE
 	}
@@ -50,7 +54,7 @@ func evalInfixExpression(operator string, left, right object.Object) object.Obje
 	case left.Type() == object.IntegerObj && right.Type() == object.IntegerObj:
 		return evalIntegerInfixExpression(operator, left, right)
 	default:
-		panic("boom!")
+		return NULL
 	}
 }
 
@@ -80,6 +84,10 @@ func evalIntegerInfixExpression(operator string, left, right object.Object) obje
 }
 
 func evalMinusPrefixExpression(right object.Object) object.Object {
+	if right.Type() != object.IntegerObj {
+		return NULL
+	}
+
 	value := right.(*object.Integer).Value
 	return &object.Integer{Value: -value}
 }
@@ -91,7 +99,7 @@ func evalPrefixExpression(operator string, right object.Object) object.Object {
 	case "-":
 		return evalMinusPrefixExpression(right)
 	default:
-		panic("ouch!")
+		return NULL
 	}
 }
 
