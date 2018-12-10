@@ -53,6 +53,7 @@ func TestEvalBooleanExpression(t *testing.T) {
 		{"1 != 1", false},
 		{"1 == 2", false},
 		{"1 != 2", true},
+		// TODO(jabley): add <= and >=
 	}
 
 	for _, tt := range tests {
