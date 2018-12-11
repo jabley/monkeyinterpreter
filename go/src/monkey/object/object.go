@@ -7,9 +7,10 @@ type Type string
 
 // The different types of object supported.
 const (
-	BooleanObj = "BOOLEAN"
-	IntegerObj = "INTEGER"
-	NullObj    = "NULL"
+	BooleanObj     = "BOOLEAN"
+	IntegerObj     = "INTEGER"
+	NullObj        = "NULL"
+	ReturnValueObj = "RETURN_VALUE"
 )
 
 // Object is the common interface for our object system.
@@ -59,4 +60,19 @@ func (n *Null) Inspect() string {
 // Type implementation of the Object interface
 func (n *Null) Type() Type {
 	return NullObj
+}
+
+// ReturnValue is the wrapper for return values in Monkey.
+type ReturnValue struct {
+	Value Object
+}
+
+// Inspect implementation of the Object interface
+func (rv *ReturnValue) Inspect() string {
+	return rv.Value.Inspect()
+}
+
+// Type implementation of the Object interface
+func (rv *ReturnValue) Type() Type {
+	return ReturnValueObj
 }
