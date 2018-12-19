@@ -1,6 +1,10 @@
 package object
 
-import "fmt"
+import (
+	"fmt"
+	"monkey/ast"
+	"strings"
+)
 
 // Type is the enum for different types of object in our object system.
 type Type string
@@ -9,6 +13,7 @@ type Type string
 const (
 	BooleanObj     = "BOOLEAN"
 	ErrorObj       = "ERROR"
+	FunctionObj    = "FUNCTION"
 	IntegerObj     = "INTEGER"
 	NullObj        = "NULL"
 	ReturnValueObj = "RETURN_VALUE"
@@ -48,6 +53,38 @@ func (e *Error) Inspect() string {
 // Type implementation of the Object interface
 func (e *Error) Type() Type {
 	return ErrorObj
+}
+
+// Function is the function type in Monkey. First class functions!
+type Function struct {
+	Parameters []*ast.Identifier
+	Body       *ast.BlockStatement
+	Env        *Environment
+}
+
+// Inspect implementation of the Object interface
+func (f *Function) Inspect() string {
+	var sb strings.Builder
+
+	params := []string{}
+
+	for _, p := range f.Parameters {
+		params = append(params, p.String())
+	}
+
+	sb.WriteString("fn")
+	sb.WriteString("(")
+	sb.WriteString(strings.Join(params, ", "))
+	sb.WriteString(") \n")
+	sb.WriteString(f.Body.String())
+	sb.WriteString("\n}")
+
+	return sb.String()
+}
+
+// Type implementation of the Object interface
+func (f *Function) Type() Type {
+	return FunctionObj
 }
 
 // Integer is the integer type in Monkey.
