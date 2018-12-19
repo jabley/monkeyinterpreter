@@ -8,6 +8,7 @@ type Type string
 // The different types of object supported.
 const (
 	BooleanObj     = "BOOLEAN"
+	ErrorObj       = "ERROR"
 	IntegerObj     = "INTEGER"
 	NullObj        = "NULL"
 	ReturnValueObj = "RETURN_VALUE"
@@ -32,6 +33,21 @@ func (b *Boolean) Inspect() string {
 // Type implementation of the Object interface
 func (b *Boolean) Type() Type {
 	return BooleanObj
+}
+
+// Error is the error type in Monkey.
+type Error struct {
+	Message string
+}
+
+// Inspect implementation of the Object interface
+func (e *Error) Inspect() string {
+	return "ERROR: " + e.Message
+}
+
+// Type implementation of the Object interface
+func (e *Error) Type() Type {
+	return ErrorObj
 }
 
 // Integer is the integer type in Monkey.
