@@ -17,6 +17,7 @@ const (
 	IntegerObj     = "INTEGER"
 	NullObj        = "NULL"
 	ReturnValueObj = "RETURN_VALUE"
+	StringObj      = "STRING"
 )
 
 // Object is the common interface for our object system.
@@ -128,4 +129,19 @@ func (rv *ReturnValue) Inspect() string {
 // Type implementation of the Object interface
 func (rv *ReturnValue) Type() Type {
 	return ReturnValueObj
+}
+
+// String is the wrapper for strings in Monkey.
+type String struct {
+	Value string
+}
+
+// Inspect implementation of the Object interface
+func (s *String) Inspect() string {
+	return s.Value
+}
+
+// Type implementation of the Object interface
+func (s *String) Type() Type {
+	return StringObj
 }
