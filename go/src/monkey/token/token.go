@@ -9,8 +9,9 @@ const (
 	EOF     = "EOF"
 
 	// identifier + literals
-	Ident = "IDENT" // add, foobar, x, y, ...
-	Int   = "INT"   // 1343456
+	Ident  = "IDENT" // add, foobar, x, y, ...
+	Int    = "INT"   // 1343456
+	String = "STRING"
 
 	// Operators
 	Assign   = "="
