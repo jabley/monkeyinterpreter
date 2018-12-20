@@ -351,6 +351,24 @@ func (rs *ReturnStatement) TokenLiteral() string {
 	return rs.Token.Literal
 }
 
+// StringLiteral is a type of Node that is a string
+type StringLiteral struct {
+	Token token.Token
+	Value string
+}
+
+func (s *StringLiteral) expressionNode() {}
+
+// String Node implementation
+func (s *StringLiteral) String() string {
+	return s.Token.Literal
+}
+
+// TokenLiteral Node implementation
+func (s *StringLiteral) TokenLiteral() string {
+	return s.Token.Literal
+}
+
 // ExpressionStatement is a general-purpose expression
 type ExpressionStatement struct {
 	Token      token.Token // the first token of the expression
