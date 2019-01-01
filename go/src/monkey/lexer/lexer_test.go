@@ -50,6 +50,7 @@ if (5 < 10) {
 10 != 9;
 "foobar"
 "foo bar"
+[1, 2];
 `
 
 	testLexing(t, input, []expectedToken{
@@ -128,6 +129,12 @@ if (5 < 10) {
 		{token.SemiColon, ";"},
 		{token.String, "foobar"},
 		{token.String, "foo bar"},
+		{token.LBracket, "["},
+		{token.Int, "1"},
+		{token.Comma, ","},
+		{token.Int, "2"},
+		{token.RBracket, "]"},
+		{token.SemiColon, ";"},
 		{token.EOF, ""},
 	})
 }
