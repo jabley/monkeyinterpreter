@@ -60,6 +60,7 @@ func New(l *lexer.Lexer) *Parser {
 	p.registerPrefix(token.True, p.parseBoolean)
 	p.registerPrefix(token.False, p.parseBoolean)
 	p.registerPrefix(token.LParen, p.parseGroupedExpression)
+	p.registerPrefix(token.LBracket, p.parseArrayLiteral)
 	p.registerPrefix(token.If, p.parseIfExpression)
 	p.registerPrefix(token.Function, p.parseFunctionLiteral)
 	p.registerPrefix(token.String, p.parseStringLiteral)
@@ -167,6 +168,12 @@ func (p *Parser) noPrefixParseFnError(t token.Type) {
 	p.addError(msg)
 }
 
+func (p *Parser) parseArrayLiteral() ast.Expression {
+	array := &ast.ArrayLiteral{Token: p.curToken}
+	array.Elements = p.parseExpressionList(token.RBracket)
+	return array
+}
+
 func (p *Parser) parseBlockStatement() *ast.BlockStatement {
 	block := &ast.BlockStatement{Token: p.curToken}
 
@@ -191,34 +198,9 @@ func (p *Parser) parseBoolean() ast.Expression {
 	}
 }
 
-func (p *Parser) parseCallArguments() []ast.Expression {
-	args := []ast.Expression{}
-
-	// Are there any arguments?
-	if p.peekTokenIs(token.RParen) {
-		p.nextToken()
-		return args
-	}
-
-	p.nextToken() // slurp the identifier
-	args = append(args, p.parseExpression(LOWEST))
-
-	for p.peekTokenIs(token.Comma) {
-		p.nextToken() // skip the comma
-		p.nextToken() // slurp the identifier
-		args = append(args, p.parseExpression(LOWEST))
-	}
-
-	if !p.expectPeek(token.RParen) {
-		return nil
-	}
-
-	return args
-}
-
 func (p *Parser) parseCallExpression(fn ast.Expression) ast.Expression {
 	expr := &ast.CallExpression{Token: p.curToken, Function: fn}
-	expr.Arguments = p.parseCallArguments()
+	expr.Arguments = p.parseExpressionList(token.RParen)
 	return expr
 }
 
@@ -242,6 +224,31 @@ func (p *Parser) parseExpression(precedence int) ast.Expression {
 	}
 
 	return leftExpr
+}
+
+func (p *Parser) parseExpressionList(end token.Type) []ast.Expression {
+	list := []ast.Expression{}
+
+	// Are there any expressions?
+	if p.peekTokenIs(end) {
+		p.nextToken()
+		return list
+	}
+
+	p.nextToken() // slurp the expression
+	list = append(list, p.parseExpression(LOWEST))
+
+	for p.peekTokenIs(token.Comma) {
+		p.nextToken() // skip the comma
+		p.nextToken() // slurp the expression
+		list = append(list, p.parseExpression(LOWEST))
+	}
+
+	if !p.expectPeek(end) {
+		return nil
+	}
+
+	return list
 }
 
 func (p *Parser) parseExpressionStatement() ast.Statement {
