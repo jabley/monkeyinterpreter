@@ -12,6 +12,7 @@ type Type string
 // The different types of object supported.
 const (
 	BooleanObj     = "BOOLEAN"
+	BuiltInObj     = "BUILTIN"
 	ErrorObj       = "ERROR"
 	FunctionObj    = "FUNCTION"
 	IntegerObj     = "INTEGER"
@@ -39,6 +40,24 @@ func (b *Boolean) Inspect() string {
 // Type implementation of the Object interface
 func (b *Boolean) Type() Type {
 	return BooleanObj
+}
+
+// BuiltInFunction is core functions built-in to the Monkey language.
+type BuiltInFunction func(args ...Object) Object
+
+// BuiltIn is the built-in function type in Monkey.
+type BuiltIn struct {
+	Fn BuiltInFunction
+}
+
+// Inspect implementation of the Object interface
+func (b *BuiltIn) Inspect() string {
+	return "builtin function"
+}
+
+// Type implementation of the Object interface
+func (b *BuiltIn) Type() Type {
+	return BuiltInObj
 }
 
 // Error is the error type in Monkey.
