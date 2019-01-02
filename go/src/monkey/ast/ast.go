@@ -300,6 +300,35 @@ func (i *Identifier) TokenLiteral() string {
 	return i.Token.Literal
 }
 
+// IndexExpression represents an array index expression `[exp]`
+type IndexExpression struct {
+	Token token.Token // The [ token
+	Left  Expression
+	Index Expression
+}
+
+// String Node implementation
+func (ie *IndexExpression) String() string {
+	var out bytes.Buffer
+
+	out.WriteString("(")
+	out.WriteString(ie.Left.String())
+	out.WriteString("[")
+	out.WriteString(ie.Index.String())
+	out.WriteString("])")
+
+	return out.String()
+}
+
+// TokenLiteral Node implementation
+func (ie *IndexExpression) TokenLiteral() string {
+	return ie.Token.Literal
+}
+
+func (ie *IndexExpression) expressionNode() {
+
+}
+
 // InfixExpression is expressions involving binary operators like `X+Y`, `X*Y` etc
 type InfixExpression struct {
 	Token    token.Token // The operator token, e.g. +
