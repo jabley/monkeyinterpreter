@@ -19,6 +19,7 @@ const (
 	FunctionObj    = "FUNCTION"
 	HashObj        = "HASH"
 	IntegerObj     = "INTEGER"
+	MacroObj       = "MACRO"
 	NullObj        = "NULL"
 	QuoteObj       = "QUOTE"
 	ReturnValueObj = "RETURN_VALUE"
@@ -213,6 +214,37 @@ func (i *Integer) Inspect() string {
 // Type implementation of the Object interface
 func (i *Integer) Type() Type {
 	return IntegerObj
+}
+
+// Macro is the macro type in Monkey.
+type Macro struct {
+	Parameters []*ast.Identifier
+	Body       *ast.BlockStatement
+	Env        *Environment
+}
+
+// Inspect implementation of the Object interface
+func (m *Macro) Inspect() string {
+	var out strings.Builder
+
+	params := []string{}
+	for _, p := range m.Parameters {
+		params = append(params, p.String())
+	}
+
+	out.WriteString("macro")
+	out.WriteString("(")
+	out.WriteString(strings.Join(params, ", "))
+	out.WriteString(") {\n")
+	out.WriteString(m.Body.String())
+	out.WriteString("\n}")
+
+	return out.String()
+}
+
+// Type implementation of the Object interface
+func (m *Macro) Type() Type {
+	return MacroObj
 }
 
 // Null is the Null type in Monkey.
