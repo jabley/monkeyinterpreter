@@ -17,6 +17,7 @@ const (
 	BuiltInObj     = "BUILTIN"
 	ErrorObj       = "ERROR"
 	FunctionObj    = "FUNCTION"
+	HashObj        = "HASH"
 	IntegerObj     = "INTEGER"
 	NullObj        = "NULL"
 	ReturnValueObj = "RETURN_VALUE"
@@ -154,10 +155,43 @@ func (f *Function) Type() Type {
 	return FunctionObj
 }
 
+// Hash is the hash type in Monkey.
+type Hash struct {
+	Pairs map[HashKey]HashPair
+}
+
+// Inspect implementation of the Object interface
+func (h *Hash) Inspect() string {
+	var out strings.Builder
+
+	pairs := []string{}
+
+	for _, pair := range h.Pairs {
+		pairs = append(pairs, fmt.Sprintf("%s: %s", pair.Key.Inspect(), pair.Value.Inspect()))
+	}
+
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+
+	return out.String()
+}
+
+// Type implementation of the Object interface
+func (h *Hash) Type() Type {
+	return HashObj
+}
+
 // HashKey allows for hashing of data types in Monkey.
 type HashKey struct {
 	Type  Type
 	Value uint64
+}
+
+// HashPair keeps track of the key and value in a hash
+type HashPair struct {
+	Key   Object
+	Value Object
 }
 
 // Integer is the integer type in Monkey.
