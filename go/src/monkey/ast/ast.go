@@ -277,6 +277,38 @@ func (ls *LetStatement) TokenLiteral() string {
 	return ls.Token.Literal
 }
 
+// HashLiteral is the node for a literal hash `{key: value [, ... ]}`
+type HashLiteral struct {
+	Token token.Token
+	Pairs map[Expression]Expression
+}
+
+// String Node implementation
+func (hl *HashLiteral) String() string {
+	var out strings.Builder
+
+	pairs := []string{}
+
+	for key, value := range hl.Pairs {
+		pairs = append(pairs, key.String()+": "+value.String())
+	}
+
+	out.WriteString("{")
+	out.WriteString(strings.Join(pairs, ", "))
+	out.WriteString("}")
+
+	return out.String()
+}
+
+// TokenLiteral Node implementation
+func (hl *HashLiteral) TokenLiteral() string {
+	return hl.Token.Literal
+}
+
+func (hl *HashLiteral) expressionNode() {
+
+}
+
 // Identifier is an Expression. Identifier in LetStatement isn't an Expression
 // because it doesn't produce a value. But Identifiers in other parts might be;
 // eg a function name.
