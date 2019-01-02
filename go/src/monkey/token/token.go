@@ -27,6 +27,7 @@ const (
 	NotEq = "!="
 
 	// Delimiters
+	Colon     = ":"
 	Comma     = ","
 	SemiColon = ";"
 
