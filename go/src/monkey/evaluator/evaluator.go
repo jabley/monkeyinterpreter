@@ -435,7 +435,22 @@ func convertObjectToASTNode(obj object.Object) ast.Node {
 			Literal: fmt.Sprintf("%d", obj.Value),
 		}
 		return &ast.IntegerLiteral{Token: t, Value: obj.Value}
+	case *object.Boolean:
+		var t token.Token
 
+		if obj.Value {
+			t = token.Token{
+				Type:    token.True,
+				Literal: "true",
+			}
+		} else {
+			t = token.Token{
+				Type:    token.False,
+				Literal: "false",
+			}
+		}
+
+		return &ast.Boolean{Token: t, Value: obj.Value}
 	default:
 		return nil
 	}
