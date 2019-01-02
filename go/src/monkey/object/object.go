@@ -2,6 +2,7 @@ package object
 
 import (
 	"fmt"
+	"hash/fnv"
 	"monkey/ast"
 	"strings"
 )
@@ -21,6 +22,11 @@ const (
 	ReturnValueObj = "RETURN_VALUE"
 	StringObj      = "STRING"
 )
+
+// Hashable is the interface which objects implement if they can go in a HashLiteral.
+type Hashable interface {
+	HashKey() HashKey
+}
 
 // Object is the common interface for our object system.
 type Object interface {
@@ -58,6 +64,19 @@ func (a *Array) Type() Type {
 // Boolean is the boolean type in Monkey.
 type Boolean struct {
 	Value bool
+}
+
+// HashKey implementation of the Hashable interface
+func (b *Boolean) HashKey() HashKey {
+	var value uint64
+
+	if b.Value {
+		value = 1
+	} else {
+		value = 0
+	}
+
+	return HashKey{Type: b.Type(), Value: value}
 }
 
 // Inspect implementation of the Object interface
@@ -135,9 +154,20 @@ func (f *Function) Type() Type {
 	return FunctionObj
 }
 
+// HashKey allows for hashing of data types in Monkey.
+type HashKey struct {
+	Type  Type
+	Value uint64
+}
+
 // Integer is the integer type in Monkey.
 type Integer struct {
 	Value int64
+}
+
+// HashKey implementation of the Hashable interface
+func (i *Integer) HashKey() HashKey {
+	return HashKey{Type: i.Type(), Value: uint64(i.Value)}
 }
 
 // Inspect implementation of the Object interface
@@ -181,6 +211,14 @@ func (rv *ReturnValue) Type() Type {
 // String is the wrapper for strings in Monkey.
 type String struct {
 	Value string
+}
+
+// HashKey implementation of the Hashable interface
+func (s *String) HashKey() HashKey {
+	h := fnv.New64a()
+	h.Write([]byte(s.Value))
+
+	return HashKey{Type: s.Type(), Value: h.Sum64()}
 }
 
 // Inspect implementation of the Object interface
