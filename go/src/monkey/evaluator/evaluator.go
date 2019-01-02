@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"monkey/ast"
 	"monkey/object"
+	"monkey/token"
 )
 
 // singleton reference value
@@ -58,7 +59,7 @@ func Eval(node ast.Node, env *object.Environment) object.Object {
 		return &object.Function{Parameters: params, Env: env, Body: body}
 	case *ast.CallExpression:
 		if node.Function.TokenLiteral() == "quote" {
-			return quote(node.Arguments[0])
+			return quote(node.Arguments[0], env)
 		}
 
 		function := Eval(node.Function, env)
@@ -359,6 +360,27 @@ func extendFunctionEnv(fn *object.Function, args []object.Object) *object.Enviro
 	return env
 }
 
+func evalUnquoteCalls(quoted ast.Node, env *object.Environment) ast.Node {
+	return ast.Modify(quoted, func(node ast.Node) ast.Node {
+		if !isUnquoteCall(node) {
+			return node
+		}
+
+		call, ok := node.(*ast.CallExpression)
+		if !ok {
+			return node
+		}
+
+		if len(call.Arguments) != 1 {
+			return node
+		}
+
+		unquoted := Eval(call.Arguments[0], env)
+		return convertObjectToASTNode(unquoted)
+	})
+
+}
+
 func isError(obj object.Object) bool {
 	return obj != nil && obj.Type() == object.ErrorObj
 }
@@ -372,6 +394,15 @@ func isTruthy(obj object.Object) bool {
 	}
 }
 
+func isUnquoteCall(node ast.Node) bool {
+	callExpression, ok := node.(*ast.CallExpression)
+	if !ok {
+		return false
+	}
+
+	return callExpression.Function.TokenLiteral() == "unquote"
+}
+
 func nativeBoolToBooleanObject(b bool) object.Object {
 	if b {
 		return TRUE
@@ -383,7 +414,8 @@ func newError(format string, a ...interface{}) *object.Error {
 	return &object.Error{Message: fmt.Sprintf(format, a...)}
 }
 
-func quote(node ast.Node) object.Object {
+func quote(node ast.Node, env *object.Environment) object.Object {
+	node = evalUnquoteCalls(node, env)
 	return &object.Quote{Node: node}
 }
 
@@ -393,4 +425,18 @@ func unwrapReturnValue(obj object.Object) object.Object {
 	}
 
 	return obj
+}
+
+func convertObjectToASTNode(obj object.Object) ast.Node {
+	switch obj := obj.(type) {
+	case *object.Integer:
+		t := token.Token{
+			Type:    token.Int,
+			Literal: fmt.Sprintf("%d", obj.Value),
+		}
+		return &ast.IntegerLiteral{Token: t, Value: obj.Value}
+
+	default:
+		return nil
+	}
 }
