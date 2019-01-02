@@ -46,6 +46,7 @@ const (
 	True     = "TRUE"
 	False    = "FALSE"
 	Return   = "RETURN"
+	Macro    = "MACRO"
 )
 
 // Token is the atom returned by the Lexer.
@@ -62,6 +63,7 @@ var keywords = map[string]Type{
 	"true":   True,
 	"false":  False,
 	"return": Return,
+	"macro":  Macro,
 }
 
 // LookupIdent checks whether the indentifier is a keyword.

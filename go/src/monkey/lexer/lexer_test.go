@@ -52,6 +52,7 @@ if (5 < 10) {
 "foo bar"
 [1, 2];
 {"foo": "bar"}
+macro(x, y) { x + y; };
 `
 
 	testLexing(t, input, []expectedToken{
@@ -141,6 +142,19 @@ if (5 < 10) {
 		{token.Colon, ":"},
 		{token.String, "bar"},
 		{token.RBrace, "}"},
+		{token.Macro, "macro"},
+		{token.LParen, "("},
+		{token.Ident, "x"},
+		{token.Comma, ","},
+		{token.Ident, "y"},
+		{token.RParen, ")"},
+		{token.LBrace, "{"},
+		{token.Ident, "x"},
+		{token.Plus, "+"},
+		{token.Ident, "y"},
+		{token.SemiColon, ";"},
+		{token.RBrace, "}"},
+		{token.SemiColon, ";"},
 		{token.EOF, ""},
 	})
 }
