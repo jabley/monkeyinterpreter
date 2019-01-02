@@ -20,6 +20,7 @@ const (
 	HashObj        = "HASH"
 	IntegerObj     = "INTEGER"
 	NullObj        = "NULL"
+	QuoteObj       = "QUOTE"
 	ReturnValueObj = "RETURN_VALUE"
 	StringObj      = "STRING"
 )
@@ -225,6 +226,21 @@ func (n *Null) Inspect() string {
 // Type implementation of the Object interface
 func (n *Null) Type() Type {
 	return NullObj
+}
+
+// Quote is the beginnings of a macro system for Monkey, a la Scheme.
+type Quote struct {
+	Node ast.Node
+}
+
+// Inspect implementation of the Object interface
+func (q *Quote) Inspect() string {
+	return "QUOTE(" + q.Node.String() + ")"
+}
+
+// Type implementation of the Object interface
+func (q *Quote) Type() Type {
+	return QuoteObj
 }
 
 // ReturnValue is the wrapper for return values in Monkey.
