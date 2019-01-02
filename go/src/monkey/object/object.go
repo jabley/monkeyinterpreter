@@ -11,6 +11,7 @@ type Type string
 
 // The different types of object supported.
 const (
+	ArrayObj       = "ARRAY"
 	BooleanObj     = "BOOLEAN"
 	BuiltInObj     = "BUILTIN"
 	ErrorObj       = "ERROR"
@@ -25,6 +26,33 @@ const (
 type Object interface {
 	Type() Type
 	Inspect() string
+}
+
+// Array is the array type in Monkey.
+type Array struct {
+	Elements []Object
+}
+
+// Inspect implementation of the Object interface
+func (a *Array) Inspect() string {
+	var out strings.Builder
+
+	elements := []string{}
+
+	for _, el := range a.Elements {
+		elements = append(elements, el.Inspect())
+	}
+
+	out.WriteString("[")
+	out.WriteString(strings.Join(elements, ", "))
+	out.WriteString("]")
+
+	return out.String()
+}
+
+// Type implementation of the Object interface
+func (a *Array) Type() Type {
+	return ArrayObj
 }
 
 // Boolean is the boolean type in Monkey.
