@@ -1,7 +1,6 @@
 package ast
 
 import (
-	"bytes"
 	"monkey/token"
 	"strings"
 )
@@ -31,7 +30,7 @@ type Program struct {
 
 // String Node implementation
 func (p *Program) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	for _, s := range p.Statements {
 		out.WriteString(s.String())
@@ -56,7 +55,7 @@ type ArrayLiteral struct {
 
 // String Node implementation
 func (al *ArrayLiteral) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	elements := []string{}
 
@@ -88,7 +87,7 @@ type BlockStatement struct {
 
 // String Node implementation
 func (bs *BlockStatement) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	for _, s := range bs.Statements {
 		out.WriteString(s.String())
@@ -135,7 +134,7 @@ type CallExpression struct {
 
 // String Node implementation
 func (ce *CallExpression) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	args := []string{}
 	for _, a := range ce.Arguments {
@@ -164,7 +163,7 @@ type FunctionLiteral struct {
 
 // String Node implementation
 func (fl *FunctionLiteral) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	params := make([]string, len(fl.Parameters))
 
@@ -199,7 +198,7 @@ type IfExpression struct {
 
 // String Node implementation
 func (ie *IfExpression) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	out.WriteString("if (")
 	out.WriteString(ie.Condition.String())
@@ -258,7 +257,7 @@ func (ls *LetStatement) statementNode() {
 
 // String Node implementation
 func (ls *LetStatement) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	out.WriteString(ls.TokenLiteral() + " ")
 	out.WriteString(ls.Name.String())
@@ -309,7 +308,7 @@ type IndexExpression struct {
 
 // String Node implementation
 func (ie *IndexExpression) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	out.WriteString("(")
 	out.WriteString(ie.Left.String())
@@ -339,7 +338,7 @@ type InfixExpression struct {
 
 // String Node implementation
 func (ie *InfixExpression) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	out.WriteString("(")
 	out.WriteString(ie.Left.String())
@@ -365,7 +364,7 @@ type PrefixExpression struct {
 
 // String Node implementation
 func (pe *PrefixExpression) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	out.WriteString("(")
 	out.WriteString(pe.Operator)
@@ -394,7 +393,7 @@ func (rs *ReturnStatement) statementNode() {}
 
 // String Node implementation
 func (rs *ReturnStatement) String() string {
-	var out bytes.Buffer
+	var out strings.Builder
 
 	out.WriteString(rs.TokenLiteral() + " ")
 
