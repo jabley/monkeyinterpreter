@@ -8,6 +8,10 @@ import (
 // Instructions is a stream of bytecode instructions.
 type Instructions []byte
 
+func (ins Instructions) String() string {
+	return ""
+}
+
 // Opcode is the first byte in an Instruction, followed by an optional number of operands.
 type Opcode byte
 
