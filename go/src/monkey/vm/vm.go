@@ -30,6 +30,12 @@ func New(bytecode *compiler.Bytecode) *VM {
 	}
 }
 
+// LastPoppedStackElem returns the result of the last expression. This is to ensure that the
+// expressions are removed from the stack and the stack doesn't grow in an unbounded fashion.
+func (vm *VM) LastPoppedStackElem() object.Object {
+	return vm.stack[vm.sp]
+}
+
 // StackTop returns the object.Object at the top of the stack, or nil if there isn't one.
 func (vm *VM) StackTop() object.Object {
 	if vm.sp == 0 {
@@ -60,6 +66,8 @@ func (vm *VM) Run() error {
 
 			result := leftValue + rightValue
 			vm.push(&object.Integer{Value: result})
+		case code.OpPop:
+			vm.pop()
 		}
 	}
 

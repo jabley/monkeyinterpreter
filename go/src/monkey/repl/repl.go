@@ -56,9 +56,9 @@ func Start(in io.Reader, out io.Writer) {
 			continue
 		}
 
-		stackTop := machine.StackTop()
-		if stackTop != nil {
-			io.WriteString(out, stackTop.Inspect())
+		lastPopped := machine.LastPoppedStackElem()
+		if lastPopped != nil {
+			io.WriteString(out, lastPopped.Inspect())
 			io.WriteString(out, "\n")
 		}
 	}
