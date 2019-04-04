@@ -10,6 +10,12 @@ import (
 // StackSize is the hard limit for how deep we can go
 const StackSize = 2048
 
+// Global singleton booleans to allow pointer comparison and minimise memory use/gc pressure.
+var (
+	True  = &object.Boolean{Value: true}
+	False = &object.Boolean{Value: false}
+)
+
 // VM is responsible for executing bytecode. It will do the fetch, decode, and execute of instructions.
 type VM struct {
 	constants    []object.Object
@@ -60,6 +66,16 @@ func (vm *VM) Run() error {
 			}
 		case code.OpAdd, code.OpSub, code.OpMul, code.OpDiv:
 			err := vm.executeBinaryOperation(op)
+			if err != nil {
+				return err
+			}
+		case code.OpTrue:
+			err := vm.push(True)
+			if err != nil {
+				return err
+			}
+		case code.OpFalse:
+			err := vm.push(False)
 			if err != nil {
 				return err
 			}
