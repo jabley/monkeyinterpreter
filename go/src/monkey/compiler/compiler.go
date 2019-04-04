@@ -38,6 +38,24 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 		c.emit(code.OpPop)
 	case *ast.InfixExpression:
+		if node.Operator == "<" {
+
+			// Treat less-than as a special case.
+			// We re-order the code and treat it as a greater-than expression.
+			err := c.Compile(node.Right)
+			if err != nil {
+				return err
+			}
+
+			err = c.Compile(node.Left)
+			if err != nil {
+				return err
+			}
+
+			c.emit(code.OpGreaterThan)
+			return nil
+		}
+
 		err := c.Compile(node.Left)
 		if err != nil {
 			return err
@@ -57,6 +75,12 @@ func (c *Compiler) Compile(node ast.Node) error {
 			c.emit(code.OpMul)
 		case "/":
 			c.emit(code.OpDiv)
+		case ">":
+			c.emit(code.OpGreaterThan)
+		case "==":
+			c.emit(code.OpEqual)
+		case "!=":
+			c.emit(code.OpNotEqual)
 		default:
 			return fmt.Errorf("Unknown operator %q", node.Operator)
 		}
