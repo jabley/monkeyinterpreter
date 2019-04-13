@@ -59,7 +59,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		// Emit an `OpJumpNotTruthy` with a hard-coded nonsense value for now.
-		c.emit(code.OpJumpNotTruthy, 9999)
+		jumpNotTruthyPos := c.emit(code.OpJumpNotTruthy, 9999)
 
 		if err := c.Compile(node.Consequence); err != nil {
 			return err
@@ -68,6 +68,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if c.lastInstructionIsPop() {
 			c.removeLastPop()
 		}
+
+		afterConsequencePos := len(c.instructions)
+		c.changeOperand(jumpNotTruthyPos, afterConsequencePos)
+
 	case *ast.InfixExpression:
 		if node.Operator == "<" {
 
@@ -170,6 +174,13 @@ func (c *Compiler) Bytecode() *Bytecode {
 	}
 }
 
+func (c *Compiler) changeOperand(opPos int, operand int) {
+	op := code.Opcode(c.instructions[opPos])
+	newInstruction := code.Make(op, operand)
+
+	c.replaceInstruction(opPos, newInstruction)
+}
+
 func (c *Compiler) lastInstructionIsPop() bool {
 	return c.lastInstruction.Opcode == code.OpPop
 }
@@ -177,6 +188,12 @@ func (c *Compiler) lastInstructionIsPop() bool {
 func (c *Compiler) removeLastPop() {
 	c.instructions = c.instructions[:c.lastInstruction.Position]
 	c.lastInstruction = c.previousInstruction
+}
+
+func (c *Compiler) replaceInstruction(pos int, newInstruction []byte) {
+	for i := 0; i < len(newInstruction); i++ {
+		c.instructions[pos+i] = newInstruction[i]
+	}
 }
 
 func (c *Compiler) setLastInstruction(op code.Opcode, pos int) {
