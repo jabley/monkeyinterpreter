@@ -41,6 +41,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 		if err := c.Compile(node.Condition); err != nil {
 			return err
 		}
+
+		// Emit an `OpJumpNotTruthy` with a hard-coded nonsense value for now.
+		c.emit(code.OpJumpNotTruthy, 9999)
+
+		if err := c.Compile(node.Consequence); err != nil {
+			return err
+		}
 	case *ast.InfixExpression:
 		if node.Operator == "<" {
 
