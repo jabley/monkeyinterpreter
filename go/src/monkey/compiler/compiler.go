@@ -37,6 +37,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 		c.emit(code.OpPop)
+	case *ast.IfExpression:
+		if err := c.Compile(node.Condition); err != nil {
+			return err
+		}
 	case *ast.InfixExpression:
 		if node.Operator == "<" {
 
