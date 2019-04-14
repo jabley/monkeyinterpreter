@@ -14,6 +14,8 @@ const StackSize = 2048
 var (
 	True  = &object.Boolean{Value: true}
 	False = &object.Boolean{Value: false}
+
+	Null = &object.Null{}
 )
 
 // VM is responsible for executing bytecode. It will do the fetch, decode, and execute of instructions.

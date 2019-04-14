@@ -74,6 +74,8 @@ const (
 	OpJump
 
 	OpPop
+
+	OpNull
 )
 
 // Definition provides more context about each opcode
@@ -98,6 +100,7 @@ var definitions = map[Opcode]*Definition{
 	OpJumpNotTruthy: {"OpJumpNotTruthy", []int{2}},
 	OpJump:          {"OpJump", []int{2}},
 	OpPop:           {"OpPop", []int{}},
+	OpNull:          {"OpNull", []int{}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
