@@ -55,6 +55,15 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 		c.emit(code.OpPop)
+
+	case *ast.Identifier:
+		symbol, ok := c.symbolTable.Resolve(node.Value)
+		if !ok {
+			return fmt.Errorf("Unknown variable %s", node.Value)
+		}
+
+		c.emit(code.OpGetGlobal, symbol.Index)
+
 	case *ast.IfExpression:
 		if err := c.Compile(node.Condition); err != nil {
 			return err
