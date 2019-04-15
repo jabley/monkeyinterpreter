@@ -76,6 +76,9 @@ const (
 	OpPop
 
 	OpNull
+
+	OpSetGlobal
+	OpGetGlobal
 )
 
 // Definition provides more context about each opcode
@@ -101,6 +104,8 @@ var definitions = map[Opcode]*Definition{
 	OpJump:          {"OpJump", []int{2}},
 	OpPop:           {"OpPop", []int{}},
 	OpNull:          {"OpNull", []int{}},
+	OpSetGlobal:     {"OpSetGlobal", []int{2}},
+	OpGetGlobal:     {"OpGetGlobal", []int{2}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
