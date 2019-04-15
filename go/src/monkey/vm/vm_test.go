@@ -99,6 +99,16 @@ func TestGlobalLetStatements(t *testing.T) {
 	runVMTests(t, tests)
 }
 
+func TestStringExpressions(t *testing.T) {
+	tests := []vmTestCase{
+		{`"monkey"`, "monkey"},
+		{`"mon" + "key"`, "monkey"},
+		{`"mon" + "key" + "banana"`, "monkeybanana"},
+	}
+
+	runVMTests(t, tests)
+}
+
 func parse(input string) *ast.Program {
 	l := lexer.New(input)
 	p := parser.New(l)
@@ -142,6 +152,10 @@ func testExpectedObject(t *testing.T, expected interface{}, actual object.Object
 		if actual != Null {
 			t.Errorf("object is not Null: %T (%+v)", actual, actual)
 		}
+	case string:
+		testStringObject(t, expected, actual)
+	default:
+		t.Errorf("Unable to compare %v with %v", expected, actual)
 	}
 }
 
@@ -169,5 +183,18 @@ func testIntegerObject(t *testing.T, expected int64, actual object.Object) {
 
 	if result.Value != expected {
 		t.Fatalf("object has the wrong value. got=%d, want=%d", result.Value, expected)
+	}
+}
+
+func testStringObject(t *testing.T, expected string, actual object.Object) {
+	t.Helper()
+
+	result, ok := actual.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", actual, actual)
+	}
+
+	if result.Value != expected {
+		t.Fatalf("object has the wrong value. got=%q, want=%q", result.Value, expected)
 	}
 }
