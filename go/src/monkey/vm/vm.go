@@ -44,6 +44,14 @@ func New(bytecode *compiler.Bytecode) *VM {
 	}
 }
 
+// NewWithGlobalsStore returns a new VM which can reuse globals from a previous compilation. This is
+// needed by the REPL.
+func NewWithGlobalsStore(bytecode *compiler.Bytecode, globals []object.Object) *VM {
+	vm := New(bytecode)
+	vm.globals = globals
+	return vm
+}
+
 // LastPoppedStackElem returns the result of the last expression. This is to ensure that the
 // expressions are removed from the stack and the stack doesn't grow in an unbounded fashion.
 func (vm *VM) LastPoppedStackElem() object.Object {

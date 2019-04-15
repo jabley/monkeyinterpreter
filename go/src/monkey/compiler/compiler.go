@@ -33,6 +33,15 @@ func New() *Compiler {
 	}
 }
 
+// NewWithState returns a Compiler that can accept a SymbolTable and constants of a previous
+// compilation. This is needed by the REPL.
+func NewWithState(s *SymbolTable, constants []object.Object) *Compiler {
+	compiler := New()
+	compiler.symbolTable = s
+	compiler.constants = constants
+	return compiler
+}
+
 // Compile compiles an AST into bytecode
 func (c *Compiler) Compile(node ast.Node) error {
 	switch node := node.(type) {
