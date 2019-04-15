@@ -19,6 +19,7 @@ type Compiler struct {
 	constants           []object.Object
 	lastInstruction     EmittedInstruction
 	previousInstruction EmittedInstruction
+	symbolTable         *SymbolTable
 }
 
 // New creates a new Compiler ready for use
@@ -28,6 +29,7 @@ func New() *Compiler {
 		constants:           []object.Object{},
 		lastInstruction:     EmittedInstruction{},
 		previousInstruction: EmittedInstruction{},
+		symbolTable:         NewSymbolTable(),
 	}
 }
 
@@ -137,6 +139,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 		default:
 			return fmt.Errorf("Unknown operator %q", node.Operator)
 		}
+	case *ast.LetStatement:
+		if err := c.Compile(node.Value); err != nil {
+			return err
+		}
+		symbol := c.symbolTable.Define(node.Name.Value)
+		c.emit(code.OpSetGlobal, symbol.Index)
+
 	case *ast.PrefixExpression:
 		err := c.Compile(node.Right)
 		if err != nil {
