@@ -10,6 +10,10 @@ import (
 // StackSize is the hard limit for how deep we can go
 const StackSize = 2048
 
+// GlobalsSize is the maximum number of global variables we can support. This is tied to how wide
+// the operands of OpSetGlobal and OpGetGlobal are (currently `[]int{2}}`)
+const GlobalsSize = 1 << 16
+
 // Global singleton booleans to allow pointer comparison and minimise memory use/gc pressure.
 var (
 	True  = &object.Boolean{Value: true}
@@ -21,6 +25,7 @@ var (
 // VM is responsible for executing bytecode. It will do the fetch, decode, and execute of instructions.
 type VM struct {
 	constants    []object.Object
+	globals      []object.Object
 	instructions code.Instructions
 
 	stack []object.Object
@@ -32,6 +37,7 @@ func New(bytecode *compiler.Bytecode) *VM {
 	return &VM{
 		instructions: bytecode.Instructions,
 		constants:    bytecode.Constants,
+		globals:      make([]object.Object, GlobalsSize),
 
 		stack: make([]object.Object, StackSize),
 		sp:    0,
@@ -109,6 +115,19 @@ func (vm *VM) Run() error {
 			}
 		case code.OpNull:
 			if err := vm.push(Null); err != nil {
+				return err
+			}
+		case code.OpSetGlobal:
+			globalIndex := code.ReadUint16(vm.instructions[ip+1:])
+			ip += 2
+
+			vm.globals[globalIndex] = vm.pop()
+
+		case code.OpGetGlobal:
+			globalIndex := code.ReadUint16(vm.instructions[ip+1:])
+			ip += 2
+
+			if err := vm.push(vm.globals[globalIndex]); err != nil {
 				return err
 			}
 		}
