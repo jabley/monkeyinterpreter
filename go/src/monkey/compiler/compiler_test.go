@@ -278,6 +278,31 @@ func TestGlobalLetStatements(t *testing.T) {
 	runCompilerTests(t, tests)
 }
 
+func TestStringExpressions(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input:             `"monkey"`,
+			expectedConstants: []interface{}{"monkey"},
+			expectedInstructions: []code.Instructions{
+				code.Make(code.OpConstant, 0),
+				code.Make(code.OpPop),
+			},
+		},
+		{
+			input:             `"mon" + "key"`,
+			expectedConstants: []interface{}{"mon", "key"},
+			expectedInstructions: []code.Instructions{
+				code.Make(code.OpConstant, 0),
+				code.Make(code.OpConstant, 1),
+				code.Make(code.OpAdd),
+				code.Make(code.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
 func runCompilerTests(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 
@@ -326,6 +351,8 @@ func testConstants(t *testing.T, expected []interface{}, actual []object.Object)
 		switch constant := constant.(type) {
 		case int:
 			testIntegerObject(t, int64(constant), actual[i])
+		case string:
+			testStringObject(t, constant, actual[i])
 		}
 	}
 }
@@ -340,6 +367,19 @@ func testIntegerObject(t *testing.T, expected int64, actual object.Object) {
 
 	if result.Value != expected {
 		t.Fatalf("object has the wrong value. got=%d, want=%d", result.Value, expected)
+	}
+}
+
+func testStringObject(t *testing.T, expected string, actual object.Object) {
+	t.Helper()
+
+	result, ok := actual.(*object.String)
+	if !ok {
+		t.Fatalf("object is not String. got=%T (%+v)", actual, actual)
+	}
+
+	if result.Value != expected {
+		t.Fatalf("object has the wrong value. got=%q, want=%q", result.Value, expected)
 	}
 }
 
