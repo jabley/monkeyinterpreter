@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"monkey/ast"
+	"monkey/code"
 	"strings"
 )
 
@@ -12,18 +13,19 @@ type Type string
 
 // The different types of object supported.
 const (
-	ArrayObj       = "ARRAY"
-	BooleanObj     = "BOOLEAN"
-	BuiltInObj     = "BUILTIN"
-	ErrorObj       = "ERROR"
-	FunctionObj    = "FUNCTION"
-	HashObj        = "HASH"
-	IntegerObj     = "INTEGER"
-	MacroObj       = "MACRO"
-	NullObj        = "NULL"
-	QuoteObj       = "QUOTE"
-	ReturnValueObj = "RETURN_VALUE"
-	StringObj      = "STRING"
+	ArrayObj            = "ARRAY"
+	BooleanObj          = "BOOLEAN"
+	BuiltInObj          = "BUILTIN"
+	CompiledFunctionObj = "COMPILED_FUNCTION"
+	ErrorObj            = "ERROR"
+	FunctionObj         = "FUNCTION"
+	HashObj             = "HASH"
+	IntegerObj          = "INTEGER"
+	MacroObj            = "MACRO"
+	NullObj             = "NULL"
+	QuoteObj            = "QUOTE"
+	ReturnValueObj      = "RETURN_VALUE"
+	StringObj           = "STRING"
 )
 
 // Hashable is the interface which objects implement if they can go in a HashLiteral.
@@ -108,6 +110,21 @@ func (b *BuiltIn) Inspect() string {
 // Type implementation of the Object interface
 func (b *BuiltIn) Type() Type {
 	return BuiltInObj
+}
+
+// CompiledFunction is a a function object that holds bytecode instead of AST nodes
+type CompiledFunction struct {
+	Instructions code.Instructions
+}
+
+// Inspect implementation of the Object interface
+func (cf *CompiledFunction) Inspect() string {
+	return fmt.Sprintf("CompiledFunction[%p]", cf)
+}
+
+// Type implementation of the Object interface
+func (cf *CompiledFunction) Type() Type {
+	return CompiledFunctionObj
 }
 
 // Error is the error type in Monkey.
