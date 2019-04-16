@@ -83,6 +83,10 @@ const (
 	OpArray
 	OpHash
 	OpIndex
+
+	OpCall        // tell the VM to start executing the *object.CompiledFunction sitting on top of the stack
+	OpReturnValue // tell the VM to return the value on top of the stack to the calling context and to resume execution there
+	OpReturn      // similar to OpReturnValue except there is no explicit return value to return but an implicit vm.Null
 )
 
 // Definition provides more context about each opcode
@@ -113,6 +117,9 @@ var definitions = map[Opcode]*Definition{
 	OpArray:         {"OpArray", []int{2}}, // This limits an Array to only contain (1 << 16) -1 = 65535 elements in an array
 	OpHash:          {"OpHash", []int{2}},
 	OpIndex:         {"OpIndex", []int{}},
+	OpCall:          {"OpCall", []int{}},
+	OpReturnValue:   {"OpReturnValue", []int{}},
+	OpReturn:        {"OpReturn", []int{}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
