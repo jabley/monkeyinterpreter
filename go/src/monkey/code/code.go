@@ -82,6 +82,7 @@ const (
 
 	OpArray
 	OpHash
+	OpIndex
 )
 
 // Definition provides more context about each opcode
@@ -111,6 +112,7 @@ var definitions = map[Opcode]*Definition{
 	OpGetGlobal:     {"OpGetGlobal", []int{2}},
 	OpArray:         {"OpArray", []int{2}}, // This limits an Array to only contain (1 << 16) -1 = 65535 elements in an array
 	OpHash:          {"OpHash", []int{2}},
+	OpIndex:         {"OpIndex", []int{}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined

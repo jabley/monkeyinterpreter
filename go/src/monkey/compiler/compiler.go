@@ -222,6 +222,17 @@ func (c *Compiler) Compile(node ast.Node) error {
 		}
 
 		c.emit(code.OpHash, 2*len(node.Pairs))
+
+	case *ast.IndexExpression:
+		if err := c.Compile(node.Left); err != nil {
+			return err
+		}
+
+		if err := c.Compile(node.Index); err != nil {
+			return err
+		}
+
+		c.emit(code.OpIndex)
 	}
 
 	return nil
