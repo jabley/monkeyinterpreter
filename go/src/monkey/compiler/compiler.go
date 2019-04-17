@@ -254,6 +254,10 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 
+		if c.lastInstructionIsPop() {
+			c.replaceLastPopWithReturn()
+		}
+
 		instructions := c.leaveScope()
 
 		compiledFn := &object.CompiledFunction{Instructions: instructions}
@@ -359,6 +363,12 @@ func (c *Compiler) replaceInstruction(pos int, newInstruction []byte) {
 	for i := 0; i < len(newInstruction); i++ {
 		ins[pos+i] = newInstruction[i]
 	}
+}
+
+func (c *Compiler) replaceLastPopWithReturn() {
+	lastPos := c.currentScope().lastInstruction.Position
+	c.replaceInstruction(lastPos, code.Make(code.OpReturnValue))
+	c.currentScope().lastInstruction.Opcode = code.OpReturnValue
 }
 
 func (c *Compiler) setLastInstruction(op code.Opcode, pos int) {
