@@ -427,6 +427,30 @@ func TestIndexExpressions(t *testing.T) {
 	runCompilerTests(t, tests)
 }
 
+func TestFunctions(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: `fn() { return 5 + 10 }`,
+			expectedConstants: []interface{}{
+				5,
+				10,
+				[]code.Instructions{
+					code.Make(code.OpConstant, 0),
+					code.Make(code.OpConstant, 1),
+					code.Make(code.OpAdd),
+					code.Make(code.OpReturnValue),
+				},
+			},
+			expectedInstructions: []code.Instructions{
+				code.Make(code.OpConstant, 2),
+				code.Make(code.OpPop),
+			},
+		},
+	}
+
+	runCompilerTests(t, tests)
+}
+
 func runCompilerTests(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 
@@ -459,7 +483,7 @@ func testInstructions(t *testing.T, expected []code.Instructions, actual code.In
 
 	for i, ins := range concatted {
 		if actual[i] != ins {
-			t.Fatalf("wrong instruction at %d. want=%q, got=%q", i, ins, actual[i])
+			t.Fatalf("wrong instruction at %d. want=%q, got=%q", i, concatted, actual)
 		}
 	}
 }
@@ -477,6 +501,17 @@ func testConstants(t *testing.T, expected []interface{}, actual []object.Object)
 			testIntegerObject(t, int64(constant), actual[i])
 		case string:
 			testStringObject(t, constant, actual[i])
+		case []code.Instructions:
+			fn, ok := actual[i].(*object.CompiledFunction)
+			if !ok {
+				t.Fatalf("constant %d - not a function: %T",
+					i, actual[i])
+			}
+
+			testInstructions(t, constant, fn.Instructions)
+
+		default:
+			t.Fatalf("Unable to compare %v with %v", constant, actual)
 		}
 	}
 }
