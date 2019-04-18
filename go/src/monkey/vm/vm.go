@@ -30,6 +30,9 @@ type VM struct {
 
 	stack []object.Object
 	sp    int // aka stack pointer. Always points to the next value. Top of stack is `stack[sp-1]`
+
+	frames      []*Frame
+	framesIndex int
 }
 
 // New returns a new VM ready to execute the specified bytecode.
@@ -207,6 +210,10 @@ func (vm *VM) buildHash(startIndex, endIndex int) (object.Object, error) {
 	return &object.Hash{Pairs: hashedPairs}, nil
 }
 
+func (vm *VM) currentFrame() *Frame {
+	return vm.frames[vm.framesIndex-1]
+}
+
 func (vm *VM) executeArrayIndex(array, index object.Object) error {
 	arrayObject := array.(*object.Array)
 	i := index.(*object.Integer).Value
@@ -375,6 +382,16 @@ func (vm *VM) push(o object.Object) error {
 	vm.sp++
 
 	return nil
+}
+
+func (vm *VM) popFrame() *Frame {
+	vm.framesIndex--
+	return vm.frames[vm.framesIndex]
+}
+
+func (vm *VM) pushFrame(f *Frame) {
+	vm.frames[vm.framesIndex] = f
+	vm.framesIndex++
 }
 
 func isTruthy(obj object.Object) bool {
