@@ -114,8 +114,9 @@ func (b *BuiltIn) Type() Type {
 
 // CompiledFunction is a a function object that holds bytecode instead of AST nodes
 type CompiledFunction struct {
-	Instructions code.Instructions
-	NumLocals    int
+	Instructions  code.Instructions
+	NumLocals     int
+	NumParameters int
 }
 
 // Inspect implementation of the Object interface
