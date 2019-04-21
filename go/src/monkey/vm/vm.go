@@ -40,7 +40,7 @@ type VM struct {
 // New returns a new VM ready to execute the specified bytecode.
 func New(bytecode *compiler.Bytecode) *VM {
 	mainFn := &object.CompiledFunction{Instructions: bytecode.Instructions}
-	mainFrame := NewFrame(mainFn)
+	mainFrame := NewFrame(mainFn, 0)
 
 	frames := make([]*Frame, MaxFrames)
 	frames[0] = mainFrame
@@ -199,24 +199,47 @@ func (vm *VM) Run() error {
 				return fmt.Errorf("calling non-function")
 			}
 
-			frame := NewFrame(fn)
+			frame := NewFrame(fn, vm.sp)
 			vm.pushFrame(frame)
+			vm.sp = frame.basePointer + fn.NumLocals
 
 		case code.OpReturnValue:
 			returnValue := vm.pop()
 
-			vm.popFrame()
-			vm.pop()
+			// Pop the frame and update the stack pointer. The additional 1 means that we don't
+			// need to pop the object.CompiledFunction too – just move the stack pointer.
+			frame := vm.popFrame()
+			vm.sp = frame.basePointer - 1
 
 			if err := vm.push(returnValue); err != nil {
 				return err
 			}
 
 		case code.OpReturn:
-			vm.popFrame()
-			vm.pop()
+			// Pop the frame and update the stack pointer. The additional 1 means that we don't
+			// need to pop the object.CompiledFunction too – just move the stack pointer.
+			frame := vm.popFrame()
+			vm.sp = frame.basePointer - 1
 
 			if err := vm.push(Null); err != nil {
+				return err
+			}
+
+		case code.OpSetLocal:
+			localIndex := code.ReadUint8(ins[ip+1:])
+			vm.currentFrame().ip++
+
+			frame := vm.currentFrame()
+
+			vm.stack[frame.basePointer+int(localIndex)] = vm.pop()
+
+		case code.OpGetLocal:
+			localIndex := code.ReadUint8(ins[ip+1:])
+			vm.currentFrame().ip++
+
+			frame := vm.currentFrame()
+
+			if err := vm.push(vm.stack[frame.basePointer+int(localIndex)]); err != nil {
 				return err
 			}
 		}
