@@ -56,5 +56,10 @@ func (s *SymbolTable) Define(name string) Symbol {
 // Resolve returns the named Symbol, or nil and false if there isn't one
 func (s *SymbolTable) Resolve(name string) (Symbol, bool) {
 	obj, ok := s.store[name]
+
+	if !ok && s.Outer != nil {
+		obj, ok = s.Outer.Resolve(name)
+	}
+
 	return obj, ok
 }
