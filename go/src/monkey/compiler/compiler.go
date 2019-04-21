@@ -290,7 +290,7 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return err
 		}
 
-		c.emit(code.OpCall)
+		c.emit(code.OpCall, 0)
 	}
 
 	return nil

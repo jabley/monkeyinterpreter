@@ -120,7 +120,7 @@ var definitions = map[Opcode]*Definition{
 	OpArray:         {"OpArray", []int{2}}, // This limits an Array to only contain (1 << 16) -1 = 65535 elements in an array
 	OpHash:          {"OpHash", []int{2}},
 	OpIndex:         {"OpIndex", []int{}},
-	OpCall:          {"OpCall", []int{}},
+	OpCall:          {"OpCall", []int{1}},
 	OpReturnValue:   {"OpReturnValue", []int{}},
 	OpReturn:        {"OpReturn", []int{}},
 	OpSetLocal:      {"OpSetLocal", []int{1}}, // This limits local bindings to only 1 << 8 == 256 per function.
