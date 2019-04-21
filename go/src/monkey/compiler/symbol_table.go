@@ -6,6 +6,7 @@ type SymbolScope string
 // Define the different types of SymbolScope (more will be added in the future)
 const (
 	GlobalScope SymbolScope = "GLOBAL"
+	LocalScope  SymbolScope = "LOCAL"
 )
 
 // Symbol is an item in a symbol table. https://en.wikipedia.org/wiki/Symbol_table
@@ -17,8 +18,17 @@ type Symbol struct {
 
 // SymbolTable is a https://en.wikipedia.org/wiki/Symbol_table
 type SymbolTable struct {
+	Outer *SymbolTable
+
 	store          map[string]Symbol
 	numDefinitions int
+}
+
+// NewEnclosedSymbolTable returns a new SymbolTable with the specified Outer SymbolTable. This is used for nested scopes.
+func NewEnclosedSymbolTable(outer *SymbolTable) *SymbolTable {
+	s := NewSymbolTable()
+	s.Outer = outer
+	return s
 }
 
 // NewSymbolTable creates a new SymbolTable
