@@ -212,6 +212,29 @@ func TestFunctionsWithReturnStatements(t *testing.T) {
 	runVMTests(t, tests)
 }
 
+func TestFunctionsWithoutReturnValue(t *testing.T) {
+	tests := []vmTestCase{{
+		input: `
+		let noReturn = fn() { };
+		noReturn();
+		`,
+		expected: Null,
+	},
+		{
+			input: `
+			 let noReturn = fn() { };
+			 let noReturnTwo = fn() { noReturn(); };
+			 noReturn();
+			 noReturnTwo();
+			 `,
+			expected: Null,
+		},
+	}
+
+	runVMTests(t, tests)
+
+}
+
 func parse(input string) *ast.Program {
 	l := lexer.New(input)
 	p := parser.New(l)
