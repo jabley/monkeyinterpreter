@@ -235,6 +235,21 @@ func TestFunctionsWithoutReturnValue(t *testing.T) {
 
 }
 
+func TestFirstClassFunctions(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input: `
+		let returnsOne = fn() { 1; };
+		let returnsOneReturner = fn() { returnsOne; };
+		returnsOneReturner()();
+		`,
+			expected: 1,
+		},
+	}
+
+	runVMTests(t, tests)
+}
+
 func parse(input string) *ast.Program {
 	l := lexer.New(input)
 	p := parser.New(l)
