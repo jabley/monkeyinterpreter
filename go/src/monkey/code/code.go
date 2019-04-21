@@ -87,6 +87,9 @@ const (
 	OpCall        // tell the VM to start executing the *object.CompiledFunction sitting on top of the stack
 	OpReturnValue // tell the VM to return the value on top of the stack to the calling context and to resume execution there
 	OpReturn      // similar to OpReturnValue except there is no explicit return value to return but an implicit vm.Null
+
+	OpSetLocal
+	OpGetLocal
 )
 
 // Definition provides more context about each opcode
@@ -120,6 +123,8 @@ var definitions = map[Opcode]*Definition{
 	OpCall:          {"OpCall", []int{}},
 	OpReturnValue:   {"OpReturnValue", []int{}},
 	OpReturn:        {"OpReturn", []int{}},
+	OpSetLocal:      {"OpSetLocal", []int{1}}, // This limits local bindings to only 1 << 8 == 256 per function.
+	OpGetLocal:      {"OpGetLocal", []int{1}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
@@ -152,6 +157,8 @@ func Make(op Opcode, operands ...int) []byte {
 		switch width {
 		case 2:
 			binary.BigEndian.PutUint16(instruction[offset:], uint16(o))
+		case 1:
+			instruction[offset] = byte(o)
 		}
 		offset += width
 	}
