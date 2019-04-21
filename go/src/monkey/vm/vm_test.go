@@ -161,6 +161,20 @@ func TestIndexExpressions(t *testing.T) {
 	runVMTests(t, tests)
 }
 
+func TestCallingFunctionsWithoutArguments(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input: `
+		let fivePlusTen = fn() { 5 + 10; };
+		fivePlusTen();
+		`,
+			expected: 15,
+		},
+	}
+
+	runVMTests(t, tests)
+}
+
 func parse(input string) *ast.Program {
 	l := lexer.New(input)
 	p := parser.New(l)
