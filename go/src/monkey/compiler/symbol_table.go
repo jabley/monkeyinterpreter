@@ -41,6 +41,13 @@ func NewSymbolTable() *SymbolTable {
 // Define creates a new Symbol in this SymbolTable
 func (s *SymbolTable) Define(name string) Symbol {
 	symbol := Symbol{Name: name, Index: s.numDefinitions, Scope: GlobalScope}
+
+	if s.Outer == nil {
+		symbol.Scope = GlobalScope
+	} else {
+		symbol.Scope = LocalScope
+	}
+
 	s.store[name] = symbol
 	s.numDefinitions++
 	return symbol
