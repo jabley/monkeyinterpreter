@@ -9,15 +9,15 @@ import (
 // It is short for "call frame" or "stack frame", and is sometimes called an "activation record" in
 // the literature
 type Frame struct {
-	fn          *object.CompiledFunction
+	cl          *object.Closure
 	ip          int
 	basePointer int
 }
 
 // NewFrame returns a Frame which encapsulates the specified compiled function
-func NewFrame(fn *object.CompiledFunction, basePointer int) *Frame {
+func NewFrame(cl *object.Closure, basePointer int) *Frame {
 	return &Frame{
-		fn:          fn,
+		cl:          cl,
 		ip:          -1,
 		basePointer: basePointer,
 	}
@@ -25,5 +25,5 @@ func NewFrame(fn *object.CompiledFunction, basePointer int) *Frame {
 
 // Instructions returns the instructions for this Frame
 func (f *Frame) Instructions() code.Instructions {
-	return f.fn.Instructions
+	return f.cl.Fn.Instructions
 }
