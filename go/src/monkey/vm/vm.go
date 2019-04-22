@@ -197,7 +197,7 @@ func (vm *VM) Run() error {
 			numArgs := code.ReadUint8(ins[ip+1:])
 			vm.currentFrame().ip++
 
-			if err := vm.callFunction(int(numArgs)); err != nil {
+			if err := vm.executeCall(int(numArgs)); err != nil {
 				return err
 			}
 
@@ -286,12 +286,22 @@ func (vm *VM) buildHash(startIndex, endIndex int) (object.Object, error) {
 	return &object.Hash{Pairs: hashedPairs}, nil
 }
 
-func (vm *VM) callFunction(numArgs int) error {
-	fn, ok := vm.stack[vm.sp-1-int(numArgs)].(*object.CompiledFunction)
-	if !ok {
-		return fmt.Errorf("calling non-function")
+func (vm *VM) callBuiltIn(builtIn *object.BuiltIn, numArgs int) error {
+	args := vm.stack[vm.sp-numArgs : vm.sp]
+
+	result := builtIn.Fn(args...)
+	vm.sp = vm.sp - numArgs - 1
+
+	if result != nil {
+		vm.push(result)
+	} else {
+		vm.push(Null)
 	}
 
+	return nil
+}
+
+func (vm *VM) callFunction(fn *object.CompiledFunction, numArgs int) error {
 	if numArgs != fn.NumParameters {
 		return fmt.Errorf("wrong number of arguments: want=%d, got=%d", fn.NumParameters, numArgs)
 	}
@@ -386,6 +396,19 @@ func (vm *VM) executeBinaryStringOperation(op code.Opcode, left, right object.Ob
 	}
 
 	return vm.push(&object.String{Value: result})
+}
+
+func (vm *VM) executeCall(numArgs int) error {
+	callee := vm.stack[vm.sp-1-numArgs]
+
+	switch callee := callee.(type) {
+	case *object.CompiledFunction:
+		return vm.callFunction(callee, numArgs)
+	case *object.BuiltIn:
+		return vm.callBuiltIn(callee, numArgs)
+	default:
+		return fmt.Errorf("calling non-function/non-built-in")
+	}
 }
 
 func (vm *VM) executeComparisonOperation(op code.Opcode) error {
