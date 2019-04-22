@@ -240,6 +240,16 @@ func (vm *VM) Run() error {
 			if err := vm.push(vm.stack[frame.basePointer+int(localIndex)]); err != nil {
 				return err
 			}
+
+		case code.OpGetBuiltIn:
+			builtInIndex := code.ReadUint8(ins[ip+1:])
+			vm.currentFrame().ip++
+
+			definition := object.BuiltIns[builtInIndex]
+
+			if err := vm.push(definition.BuiltIn); err != nil {
+				return err
+			}
 		}
 	}
 
