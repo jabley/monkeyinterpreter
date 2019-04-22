@@ -43,6 +43,8 @@ func (ins Instructions) fmtInstruction(def *Definition, operands []int) string {
 		return def.Name
 	case 1:
 		return fmt.Sprintf("%s %d", def.Name, operands[0])
+	case 2:
+		return fmt.Sprintf("%s %d %d", def.Name, operands[0], operands[1])
 	}
 
 	return fmt.Sprintf("ERROR: unhandled operandCount for %s\n ", def.Name)
@@ -92,6 +94,8 @@ const (
 	OpGetLocal
 
 	OpGetBuiltIn
+
+	OpClosure
 )
 
 // Definition provides more context about each opcode
@@ -128,6 +132,12 @@ var definitions = map[Opcode]*Definition{
 	OpSetLocal:      {"OpSetLocal", []int{1}}, // This limits local bindings to only 1 << 8 == 256 per function.
 	OpGetLocal:      {"OpGetLocal", []int{1}},
 	OpGetBuiltIn:    {"OpGetBuiltIn", []int{1}},
+	// Closure has 2 operands. The first (2 bytes wide) is the constant index. This describes
+	// where we can find the *object.CompiledFunction that's to be converted into a closure.
+	// The second operand (1 byte wide) is the number of free variables for the closure. This
+	// limits us to 256 free variables per closure. If you have a closure that has more than 256
+	// free variables, you might be writing code which is hard to understand :D
+	OpClosure: {"OpClosure", []int{2, 1}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
