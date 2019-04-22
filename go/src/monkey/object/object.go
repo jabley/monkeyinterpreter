@@ -16,6 +16,7 @@ const (
 	ArrayObj            = "ARRAY"
 	BooleanObj          = "BOOLEAN"
 	BuiltInObj          = "BUILTIN"
+	ClosureObj          = "CLOSURE"
 	CompiledFunctionObj = "COMPILED_FUNCTION"
 	ErrorObj            = "ERROR"
 	FunctionObj         = "FUNCTION"
@@ -109,6 +110,23 @@ func (b *BuiltIn) Inspect() string {
 
 // Type implementation of the Object interface
 func (b *BuiltIn) Type() Type {
+	return BuiltInObj
+}
+
+// Closure wraps a CompiledFunction and any free variables that are referenced. See
+// https://en.wikipedia.org/wiki/Free_variables_and_bound_variables
+type Closure struct {
+	Fn   *CompiledFunction
+	Free []Object
+}
+
+// Inspect implementation of the Object interface
+func (c *Closure) Inspect() string {
+	return fmt.Sprintf("Closure[%p]", c)
+}
+
+// Type implementation of the Object interface
+func (c *Closure) Type() Type {
 	return BuiltInObj
 }
 
