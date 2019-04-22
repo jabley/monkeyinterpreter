@@ -5,8 +5,9 @@ type SymbolScope string
 
 // Define the different types of SymbolScope (more will be added in the future)
 const (
-	GlobalScope SymbolScope = "GLOBAL"
-	LocalScope  SymbolScope = "LOCAL"
+	GlobalScope  SymbolScope = "GLOBAL"
+	LocalScope   SymbolScope = "LOCAL"
+	BuiltInScope SymbolScope = "BUILTIN"
 )
 
 // Symbol is an item in a symbol table. https://en.wikipedia.org/wiki/Symbol_table
@@ -50,6 +51,13 @@ func (s *SymbolTable) Define(name string) Symbol {
 
 	s.store[name] = symbol
 	s.numDefinitions++
+	return symbol
+}
+
+// DefineBuiltIn creates a new Symbol for a built-in function
+func (s *SymbolTable) DefineBuiltIn(index int, name string) Symbol {
+	symbol := Symbol{Name: name, Index: index, Scope: BuiltInScope}
+	s.store[name] = symbol
 	return symbol
 }
 
