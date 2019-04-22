@@ -90,6 +90,8 @@ const (
 
 	OpSetLocal
 	OpGetLocal
+
+	OpGetBuiltIn
 )
 
 // Definition provides more context about each opcode
@@ -125,6 +127,7 @@ var definitions = map[Opcode]*Definition{
 	OpReturn:        {"OpReturn", []int{}},
 	OpSetLocal:      {"OpSetLocal", []int{1}}, // This limits local bindings to only 1 << 8 == 256 per function.
 	OpGetLocal:      {"OpGetLocal", []int{1}},
+	OpGetBuiltIn:    {"OpGetBuiltIn", []int{1}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
