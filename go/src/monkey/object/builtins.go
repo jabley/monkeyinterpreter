@@ -26,6 +26,18 @@ var BuiltIns = []struct {
 			},
 		},
 	},
+	{
+		"puts",
+		&BuiltIn{
+			Fn: func(args ...Object) Object {
+				for _, arg := range args {
+					fmt.Println(arg.Inspect())
+				}
+
+				return nil
+			},
+		},
+	},
 }
 
 // GetBuiltInByName returns the named BuiltIn, or nil if there is no such BuiltIn

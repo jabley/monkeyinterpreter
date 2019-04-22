@@ -1,21 +1,12 @@
 package evaluator
 
 import (
-	"fmt"
 	"monkey/object"
 )
 
 var builtins = map[string]*object.BuiltIn{
-	"len": object.GetBuiltInByName("len"),
-	"puts": &object.BuiltIn{
-		Fn: func(args ...object.Object) object.Object {
-			for _, arg := range args {
-				fmt.Println(arg.Inspect())
-			}
-
-			return NULL
-		},
-	},
+	"len":  object.GetBuiltInByName("len"),
+	"puts": object.GetBuiltInByName("puts"),
 	"first": &object.BuiltIn{
 		Fn: func(args ...object.Object) object.Object {
 			if len(args) != 1 {
