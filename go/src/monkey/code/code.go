@@ -96,6 +96,7 @@ const (
 	OpGetBuiltIn
 
 	OpClosure
+	OpGetFree
 )
 
 // Definition provides more context about each opcode
@@ -138,6 +139,7 @@ var definitions = map[Opcode]*Definition{
 	// limits us to 256 free variables per closure. If you have a closure that has more than 256
 	// free variables, you might be writing code which is hard to understand :D
 	OpClosure: {"OpClosure", []int{2, 1}},
+	OpGetFree: {"OpGetFree", []int{1}},
 }
 
 // Lookup returns the human-readable name of the opcode, or an error if the opcode isn't defined
