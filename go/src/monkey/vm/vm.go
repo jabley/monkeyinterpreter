@@ -256,11 +256,19 @@ func (vm *VM) Run() error {
 			constIndex := code.ReadUint16(ins[ip+1:])
 			vm.currentFrame().ip += 2
 
-			// TODO(jabley): do something with the number of free variables
-			_ = code.ReadUint8(ins[ip+3:])
+			numFree := code.ReadUint8(ins[ip+3:])
 			vm.currentFrame().ip++
 
-			if err := vm.pushClosure(int(constIndex)); err != nil {
+			if err := vm.pushClosure(int(constIndex), int(numFree)); err != nil {
+				return err
+			}
+
+		case code.OpGetFree:
+			freeIndex := code.ReadUint8(ins[ip+1:])
+			vm.currentFrame().ip++
+
+			currentClosure := vm.currentFrame().cl
+			if err := vm.push(currentClosure.Free[freeIndex]); err != nil {
 				return err
 			}
 		}
@@ -519,14 +527,20 @@ func (vm *VM) popFrame() *Frame {
 	return vm.frames[vm.framesIndex]
 }
 
-func (vm *VM) pushClosure(constIndex int) error {
+func (vm *VM) pushClosure(constIndex, numFree int) error {
 	constant := vm.constants[constIndex]
 	function, ok := constant.(*object.CompiledFunction)
 	if !ok {
 		return fmt.Errorf("not a function: %+v", constant)
 	}
 
-	closure := &object.Closure{Fn: function}
+	free := make([]object.Object, numFree)
+	for i := 0; i < numFree; i++ {
+		free[i] = vm.stack[vm.sp-numFree+i]
+	}
+	vm.sp = vm.sp - numFree
+
+	closure := &object.Closure{Fn: function, Free: free}
 	return vm.push(closure)
 }
 
