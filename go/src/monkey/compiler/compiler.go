@@ -178,10 +178,13 @@ func (c *Compiler) Compile(node ast.Node) error {
 			return fmt.Errorf("Unknown operator %q", node.Operator)
 		}
 	case *ast.LetStatement:
+		// Define the symbol before compiling the expression, so that recursive functions can be compiled
+		symbol := c.symbolTable.Define(node.Name.Value)
+
 		if err := c.Compile(node.Value); err != nil {
 			return err
 		}
-		symbol := c.symbolTable.Define(node.Name.Value)
+
 		if symbol.Scope == GlobalScope {
 			c.emit(code.OpSetGlobal, symbol.Index)
 		} else {
