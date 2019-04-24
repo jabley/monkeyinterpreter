@@ -6,6 +6,9 @@ test:
 	go vet ./...
 	go test -coverprofile=monkey.coverage ./...
 
+bench:
+	go test -bench Bench ./...
+
 build:
 	go build -o ./bin/monkey monkey/
 
