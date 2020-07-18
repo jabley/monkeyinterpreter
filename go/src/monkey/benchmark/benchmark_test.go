@@ -1,7 +1,6 @@
 package benchmark
 
 import (
-	"fmt"
 	"monkey/ast"
 	"monkey/compiler"
 	"monkey/evaluator"
@@ -27,7 +26,7 @@ func BenchmarkVM(b *testing.B) {
 		comp := compiler.New()
 		err := comp.Compile(program)
 		if err != nil {
-			fmt.Printf("compiler error: %s", err)
+			b.Fatalf("compiler error: %s", err)
 		}
 		machine := vm.New(comp.Bytecode())
 		if err := machine.Run(); err != nil {
