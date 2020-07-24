@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"monkey/compiler"
-	"monkey/evaluator"
-	"monkey/lexer"
-	"monkey/object"
-	"monkey/parser"
-	"monkey/vm"
+
+	"github.com/jabley/monkey/compiler"
+	"github.com/jabley/monkey/evaluator"
+	"github.com/jabley/monkey/lexer"
+	"github.com/jabley/monkey/object"
+	"github.com/jabley/monkey/parser"
+	"github.com/jabley/monkey/vm"
 )
 
 const prompt = ">> "

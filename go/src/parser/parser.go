@@ -2,10 +2,11 @@ package parser
 
 import (
 	"fmt"
-	"monkey/ast"
-	"monkey/lexer"
-	"monkey/token"
 	"strconv"
+
+	"github.com/jabley/monkey/ast"
+	"github.com/jabley/monkey/lexer"
+	"github.com/jabley/monkey/token"
 )
 
 // Precedence operators

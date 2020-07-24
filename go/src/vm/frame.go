@@ -1,8 +1,8 @@
 package vm
 
 import (
-	"monkey/code"
-	"monkey/object"
+	"github.com/jabley/monkey/code"
+	"github.com/jabley/monkey/object"
 )
 
 // Frame represents call-relevant information – the instructions and the instruction pointer.

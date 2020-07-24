@@ -1,14 +1,15 @@
 package benchmark
 
 import (
-	"monkey/ast"
-	"monkey/compiler"
-	"monkey/evaluator"
-	"monkey/lexer"
-	"monkey/object"
-	"monkey/parser"
-	"monkey/vm"
 	"testing"
+
+	"github.com/jabley/monkey/ast"
+	"github.com/jabley/monkey/compiler"
+	"github.com/jabley/monkey/evaluator"
+	"github.com/jabley/monkey/lexer"
+	"github.com/jabley/monkey/object"
+	"github.com/jabley/monkey/parser"
+	"github.com/jabley/monkey/vm"
 )
 
 func BenchmarkEvaluator(b *testing.B) {

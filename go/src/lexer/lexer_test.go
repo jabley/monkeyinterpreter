@@ -3,7 +3,7 @@ package lexer
 import (
 	"testing"
 
-	"monkey/token"
+	"github.com/jabley/monkey/token"
 )
 
 type expectedToken struct {

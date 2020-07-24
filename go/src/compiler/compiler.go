@@ -2,10 +2,11 @@ package compiler
 
 import (
 	"fmt"
-	"monkey/ast"
-	"monkey/code"
-	"monkey/object"
 	"sort"
+
+	"github.com/jabley/monkey/ast"
+	"github.com/jabley/monkey/code"
+	"github.com/jabley/monkey/object"
 )
 
 // EmittedInstruction keeps track of the instructions that the compiler is generating.

@@ -1,6 +1,6 @@
 package lexer
 
-import "monkey/token"
+import "github.com/jabley/monkey/token"
 
 // Lexer used to tokenise the input
 type Lexer struct {

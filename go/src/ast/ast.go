@@ -1,8 +1,9 @@
 package ast
 
 import (
-	"monkey/token"
 	"strings"
+
+	"github.com/jabley/monkey/token"
 )
 
 // Node is the basic interface for a item in the Abstract Syntax Tree

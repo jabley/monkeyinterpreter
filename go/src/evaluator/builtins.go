@@ -1,7 +1,7 @@
 package evaluator
 
 import (
-	"monkey/object"
+	"github.com/jabley/monkey/object"
 )
 
 var builtins = map[string]*object.BuiltIn{

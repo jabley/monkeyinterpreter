@@ -1,8 +1,8 @@
 package evaluator
 
 import (
-	"monkey/ast"
-	"monkey/object"
+	"github.com/jabley/monkey/ast"
+	"github.com/jabley/monkey/object"
 )
 
 // DefineMacros finds macro definitions in the AST, and removes them.

@@ -2,9 +2,10 @@ package evaluator
 
 import (
 	"fmt"
-	"monkey/ast"
-	"monkey/object"
-	"monkey/token"
+
+	"github.com/jabley/monkey/ast"
+	"github.com/jabley/monkey/object"
+	"github.com/jabley/monkey/token"
 )
 
 // singleton reference value

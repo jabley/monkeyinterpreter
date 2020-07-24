@@ -2,9 +2,10 @@ package vm
 
 import (
 	"fmt"
-	"monkey/code"
-	"monkey/compiler"
-	"monkey/object"
+
+	"github.com/jabley/monkey/code"
+	"github.com/jabley/monkey/compiler"
+	"github.com/jabley/monkey/object"
 )
 
 // StackSize is the hard limit for how deep we can go

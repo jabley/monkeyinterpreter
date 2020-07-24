@@ -3,9 +3,10 @@ package object
 import (
 	"fmt"
 	"hash/fnv"
-	"monkey/ast"
-	"monkey/code"
 	"strings"
+
+	"github.com/jabley/monkey/ast"
+	"github.com/jabley/monkey/code"
 )
 
 // Type is the enum for different types of object in our object system.

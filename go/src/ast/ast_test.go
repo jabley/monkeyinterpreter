@@ -2,9 +2,10 @@ package ast
 
 import (
 	"fmt"
-	"monkey/token"
 	"reflect"
 	"testing"
+
+	"github.com/jabley/monkey/token"
 )
 
 func TestLetString(t *testing.T) {
