@@ -67,6 +67,12 @@ impl<'a> Lexer<'a> {
         match self.read_char() {
             Some('=') => Token::Assign,
             Some('+') => Token::Plus,
+            Some('!') => Token::Bang,
+            Some('-') => Token::Minus,
+            Some('*') => Token::Asterisk,
+            Some('/') => Token::Slash,
+            Some('<') => Token::Lt,
+            Some('>') => Token::Gt,
             Some('(') => Token::OpenParen,
             Some(')') => Token::CloseParen,
             Some('{') => Token::OpenBrace,
@@ -139,6 +145,9 @@ let add = fn( x, y) {
 };
 
 let result = add( five, ten);
+
+!-/* 5;
+5 < 10 > 5;
 ",
             vec![
                 token::Token::Let,
@@ -176,6 +185,18 @@ let result = add( five, ten);
                 token::Token::Comma,
                 token::Token::Ident("ten".to_owned()),
                 token::Token::CloseParen,
+                token::Token::SemiColon,
+                token::Token::Bang,
+                token::Token::Minus,
+                token::Token::Slash,
+                token::Token::Asterisk,
+                token::Token::Int(5),
+                token::Token::SemiColon,
+                token::Token::Int(5),
+                token::Token::Lt,
+                token::Token::Int(10),
+                token::Token::Gt,
+                token::Token::Int(5),
                 token::Token::SemiColon,
                 token::Token::Eof,
             ],

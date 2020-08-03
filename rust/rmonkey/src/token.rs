@@ -11,6 +11,18 @@ pub enum Token {
     Assign,
     /// "+"
     Plus,
+    /// "-"
+    Minus,
+    /// "!"
+    Bang,
+    /// "*"
+    Asterisk,
+    /// "/"
+    Slash,
+    /// "<"
+    Lt,
+    /// ">"
+    Gt,
     /// "("
     OpenParen,
     /// ")"
