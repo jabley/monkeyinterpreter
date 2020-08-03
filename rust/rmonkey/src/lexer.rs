@@ -65,9 +65,23 @@ impl<'a> Lexer<'a> {
         self.skip_whitespace();
 
         match self.read_char() {
-            Some('=') => Token::Assign,
+            Some('=') => {
+                if let Some('=') = self.peek_char() {
+                    self.read_char();
+                    Token::Eq
+                } else {
+                    Token::Assign
+                }
+            }
             Some('+') => Token::Plus,
-            Some('!') => Token::Bang,
+            Some('!') => {
+                if let Some('=') = self.peek_char() {
+                    self.read_char();
+                    Token::Ne
+                } else {
+                    Token::Bang
+                }
+            }
             Some('-') => Token::Minus,
             Some('*') => Token::Asterisk,
             Some('/') => Token::Slash,
@@ -154,6 +168,10 @@ if (5 < 10) {
 } else {
     return false;
 }
+
+10 == 10;
+
+10 != 9;
 ",
             vec![
                 token::Token::Let,
@@ -221,6 +239,14 @@ if (5 < 10) {
                 token::Token::False,
                 token::Token::SemiColon,
                 token::Token::CloseBrace,
+                token::Token::Int(10),
+                token::Token::Eq,
+                token::Token::Int(10),
+                token::Token::SemiColon,
+                token::Token::Int(10),
+                token::Token::Ne,
+                token::Token::Int(9),
+                token::Token::SemiColon,
                 token::Token::Eof,
             ],
         );

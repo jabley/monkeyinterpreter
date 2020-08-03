@@ -23,6 +23,10 @@ pub enum Token {
     Lt,
     /// ">"
     Gt,
+    /// "=="
+    Eq,
+    /// "!="
+    Ne,
     /// "("
     OpenParen,
     /// ")"
