@@ -148,6 +148,12 @@ let result = add( five, ten);
 
 !-/* 5;
 5 < 10 > 5;
+
+if (5 < 10) {
+    return true;
+} else {
+    return false;
+}
 ",
             vec![
                 token::Token::Let,
@@ -198,6 +204,23 @@ let result = add( five, ten);
                 token::Token::Gt,
                 token::Token::Int(5),
                 token::Token::SemiColon,
+                token::Token::If,
+                token::Token::OpenParen,
+                token::Token::Int(5),
+                token::Token::Lt,
+                token::Token::Int(10),
+                token::Token::CloseParen,
+                token::Token::OpenBrace,
+                token::Token::Return,
+                token::Token::True,
+                token::Token::SemiColon,
+                token::Token::CloseBrace,
+                token::Token::Else,
+                token::Token::OpenBrace,
+                token::Token::Return,
+                token::Token::False,
+                token::Token::SemiColon,
+                token::Token::CloseBrace,
                 token::Token::Eof,
             ],
         );

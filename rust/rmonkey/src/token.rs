@@ -36,11 +36,21 @@ pub enum Token {
     /// ";"
     SemiColon,
 
-    // Keyworlds
+    // Keywords
     /// "fn"
     Function,
     /// "let"
     Let,
+    /// "if"
+    If,
+    /// "else"
+    Else,
+    /// "true"
+    True,
+    /// "false"
+    False,
+    /// "return"
+    Return,
 }
 
 pub fn lookup_ident(ident: &str) -> Token {
@@ -51,6 +61,11 @@ fn keyword_to_token(keyword: &str) -> Option<Token> {
     match keyword {
         "fn" => Some(Token::Function),
         "let" => Some(Token::Let),
+        "if" => Some(Token::If),
+        "else" => Some(Token::Else),
+        "true" => Some(Token::True),
+        "false" => Some(Token::False),
+        "return" => Some(Token::Return),
         _ => None,
     }
 }
