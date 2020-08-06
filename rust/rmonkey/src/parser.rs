@@ -162,4 +162,22 @@ return 993322;
             vec![Statement::Return, Statement::Return, Statement::Return,]
         );
     }
+
+    #[test]
+    fn expression_statement() {
+        let input = "
+foobar;
+";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            1,
+            program.statements.len(),
+            "Parser errors: {:?}",
+            parser.errors
+        );
+    }
 }
