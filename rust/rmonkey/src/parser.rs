@@ -125,4 +125,24 @@ let foobar = 838383;
             ]
         );
     }
+
+    #[test]
+    fn return_statement() {
+        let input = "
+return 5;
+return 10;
+return 993322;
+";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            3,
+            program.statements.len(),
+            "Parser errors: {:?}",
+            parser.errors
+        );
+    }
 }
