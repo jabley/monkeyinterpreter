@@ -55,6 +55,7 @@ impl<'a> Parser<'a> {
     fn parse_statement(&mut self) -> Result<Statement> {
         match self.cur_token {
             Token::Let => self.parse_let_statement(),
+            Token::Return => self.parse_return_statement(),
             _ => unimplemented!(),
         }
     }
@@ -80,6 +81,17 @@ impl<'a> Parser<'a> {
         }
 
         Ok(Statement::Let(name))
+    }
+
+    fn parse_return_statement(&mut self) -> Result<Statement> {
+        self.next_token();
+
+        // TODO(jabley): parse the expression properly.
+        while self.cur_token != Token::SemiColon {
+            self.next_token();
+        }
+
+        Ok(Statement::Return)
     }
 
     fn expect_peek(&mut self, token: Token, expected: fn(Token) -> ParserError) -> Result<()> {
@@ -143,6 +155,11 @@ return 993322;
             program.statements.len(),
             "Parser errors: {:?}",
             parser.errors
+        );
+
+        assert_eq!(
+            program.statements,
+            vec![Statement::Return, Statement::Return, Statement::Return,]
         );
     }
 }
