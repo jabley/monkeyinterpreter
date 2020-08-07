@@ -6,7 +6,7 @@ pub enum Expression {
     FunctionLiteral(Vec<String>, BlockStatement),
     Identifier(String),
     If(Box<Expression>, BlockStatement, Option<BlockStatement>),
-    Integer(i64),
+    IntegerLiteral(i64),
     Infix(InfixOperator, Box<Expression>, Box<Expression>),
     Prefix(PrefixOperator, Box<Expression>),
 }
@@ -26,7 +26,7 @@ impl fmt::Display for Expression {
                 }
                 Ok(())
             }
-            Expression::Integer(value) => write!(f, "{}", value),
+            Expression::IntegerLiteral(value) => write!(f, "{}", value),
             Expression::Prefix(operator, exp) => write!(f, "({}{})", operator, exp),
             Expression::Infix(operator, left, right) => {
                 write!(f, "({} {} {})", left, operator, right)

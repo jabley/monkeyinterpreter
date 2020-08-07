@@ -234,7 +234,7 @@ impl<'a> Parser<'a> {
 
     fn parse_integer(&self) -> Result<Expression> {
         if let Token::Int(i) = self.cur_token {
-            Ok(Expression::Integer(i))
+            Ok(Expression::IntegerLiteral(i))
         } else {
             Err(ParserError::ExpectedIntegerToken(self.cur_token.clone()))
         }
@@ -434,7 +434,7 @@ foobar;
         );
 
         assert_eq!(
-            Statement::Expression(Expression::Integer(5)),
+            Statement::Expression(Expression::IntegerLiteral(5)),
             program.statements[0],
         );
     }
@@ -442,8 +442,12 @@ foobar;
     #[test]
     fn prefix_expressions() {
         let tests = vec![
-            ("!5;", PrefixOperator::Bang, Expression::Integer(5)),
-            ("-15;", PrefixOperator::Minus, Expression::Integer(15)),
+            ("!5;", PrefixOperator::Bang, Expression::IntegerLiteral(5)),
+            (
+                "-15;",
+                PrefixOperator::Minus,
+                Expression::IntegerLiteral(15),
+            ),
             ("!true;", PrefixOperator::Bang, Expression::Boolean(true)),
             ("!false;", PrefixOperator::Bang, Expression::Boolean(false)),
         ];
@@ -487,8 +491,8 @@ foobar;
             assert_eq!(
                 vec![Statement::Expression(Expression::Infix(
                     operator,
-                    Box::new(Expression::Integer(left)),
-                    Box::new(Expression::Integer(right))
+                    Box::new(Expression::IntegerLiteral(left)),
+                    Box::new(Expression::IntegerLiteral(right))
                 ))],
                 program.statements
             );
