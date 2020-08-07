@@ -289,6 +289,35 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_call_expression(&mut self, function: Expression) -> Result<Expression> {
+        let arguments = self.parse_call_arguments()?;
+        Ok(Expression::Call(Box::new(function), arguments))
+    }
+
+    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>> {
+        let mut exprs = vec![];
+
+        // No parameters
+        if self.peek_token == Token::CloseParen {
+            self.next_token();
+            return Ok(exprs);
+        }
+
+        self.next_token();
+
+        exprs.push(self.parse_expression(Precedence::Lowest)?);
+
+        while self.peek_token == Token::Comma {
+            self.next_token(); // Slurp the comma
+            self.next_token(); // Slurp the expression
+            exprs.push(self.parse_expression(Precedence::Lowest)?);
+        }
+
+        self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
+
+        Ok(exprs)
+    }
+
     fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
         let (precedence, infix) = self.infix_token(&self.cur_token);
         let i = infix.ok_or_else(|| ParserError::ExpectedInfixToken(self.cur_token.clone()))?;
@@ -308,6 +337,7 @@ impl<'a> Parser<'a> {
             Token::Minus => (Precedence::Sum, Some(InfixOperator::Minus)),
             Token::Slash => (Precedence::Product, Some(InfixOperator::Slash)),
             Token::Asterisk => (Precedence::Product, Some(InfixOperator::Asterisk)),
+            Token::OpenParen => (Precedence::Call, None),
             _ => (Precedence::Lowest, None),
         }
     }
@@ -322,6 +352,7 @@ impl<'a> Parser<'a> {
             | Token::Ne
             | Token::Lt
             | Token::Gt => Some(|parser, left| parser.parse_infix_expression(left)),
+            Token::OpenParen => Some(|parser, function| parser.parse_call_expression(function)),
             _ => None,
         }
     }
@@ -575,6 +606,7 @@ foobar;
             ("fn(x) { }", "fn(x) ;"),
             ("fn(x, y, z) { }", "fn(x, y, z) ;"),
             ("fn(x, y) { x + y; }", "fn(x, y) { (x + y); };"),
+            ("add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5));"),
         ]);
     }
 
