@@ -270,12 +270,12 @@ let foobar = 838383;
         );
 
         assert_eq!(
-            program.statements,
             vec![
                 Statement::Let("x".to_string()),
                 Statement::Let("y".to_string()),
                 Statement::Let("foobar".to_string()),
-            ]
+            ],
+            program.statements
         );
     }
 
@@ -299,8 +299,8 @@ return 993322;
         );
 
         assert_eq!(
-            program.statements,
-            vec![Statement::Return, Statement::Return, Statement::Return,]
+            vec![Statement::Return, Statement::Return, Statement::Return,],
+            program.statements
         );
     }
 
@@ -350,35 +350,28 @@ foobar;
 
     #[test]
     fn prefix_expressions() {
-        let input = "
--5;
-!15;
-";
+        let tests = vec![
+            ("!5;", PrefixOperator::Bang, Expression::Integer(5)),
+            ("-15;", PrefixOperator::Minus, Expression::Integer(15)),
+            ("!true;", PrefixOperator::Bang, Expression::Boolean(true)),
+            ("!false;", PrefixOperator::Bang, Expression::Boolean(false)),
+        ];
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, operator, value) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
 
-        assert_eq!(
-            2,
-            program.statements.len(),
-            "Parser errors: {:?}",
-            parser.errors
-        );
+            check_parser_errors(&parser);
 
-        assert_eq!(
-            vec!(
-                Statement::Expression(Expression::Prefix(
-                    PrefixOperator::Minus,
-                    Box::new(Expression::Integer(5))
-                )),
-                Statement::Expression(Expression::Prefix(
-                    PrefixOperator::Bang,
-                    Box::new(Expression::Integer(15))
-                )),
-            ),
-            program.statements,
-        );
+            assert_eq!(
+                vec![Statement::Expression(Expression::Prefix(
+                    operator,
+                    Box::new(value)
+                ))],
+                program.statements
+            );
+        }
     }
 
     #[test]
@@ -401,12 +394,12 @@ foobar;
             let program = parser.parse_program();
 
             assert_eq!(
-                program.statements,
                 vec![Statement::Expression(Expression::Infix(
                     operator,
                     Box::new(Expression::Integer(left)),
                     Box::new(Expression::Integer(right))
-                ))]
+                ))],
+                program.statements
             );
         }
     }
@@ -424,8 +417,33 @@ foobar;
             check_parser_errors(&parser);
 
             assert_eq!(
-                program.statements,
-                vec![Statement::Expression(Expression::Boolean(expected)),]
+                vec![Statement::Expression(Expression::Boolean(expected)),],
+                program.statements
+            );
+        }
+    }
+
+    #[test]
+    fn infix_expression_boolean() {
+        let tests = vec![
+            ("true == true", true, InfixOperator::Eq, true),
+            ("true != false", true, InfixOperator::NotEq, false),
+            ("false == false", false, InfixOperator::Eq, false),
+        ];
+        for (input, left, operator, right) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(
+                vec![Statement::Expression(Expression::Infix(
+                    operator,
+                    Box::new(Expression::Boolean(left)),
+                    Box::new(Expression::Boolean(right))
+                ))],
+                program.statements
             );
         }
     }
@@ -459,7 +477,7 @@ foobar;
             let program = parser.parse_program();
             check_parser_errors(&parser);
 
-            assert_eq!(program.to_string(), expected);
+            assert_eq!(expected, program.to_string());
         }
     }
 
