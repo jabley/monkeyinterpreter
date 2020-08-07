@@ -8,6 +8,7 @@ type Result<T> = std::result::Result<T, ParserError>;
 pub enum ParserError {
     ExpectedAssign(Token),
     ExpectedIdentifierToken(Token),
+    ExpectedIntegerToken(Token),
     ExpectedPrefixToken(Token),
 }
 
@@ -113,6 +114,7 @@ impl<'a> Parser<'a> {
     fn prefix_parse(&mut self) -> Result<Expression> {
         match self.cur_token {
             Token::Ident(_) => self.parse_identifier(),
+            Token::Int(_) => self.parse_integer(),
             _ => unimplemented!(),
         }
     }
@@ -126,6 +128,14 @@ impl<'a> Parser<'a> {
             Ok(ident.to_string())
         } else {
             Err(ParserError::ExpectedIdentifierToken(self.cur_token.clone()))
+        }
+    }
+
+    fn parse_integer(&self) -> Result<Expression> {
+        if let Token::Int(i) = self.cur_token {
+            Ok(Expression::Integer(i))
+        } else {
+            Err(ParserError::ExpectedIntegerToken(self.cur_token.clone()))
         }
     }
 
@@ -217,6 +227,27 @@ foobar;
 
         assert_eq!(
             Statement::Expression(Expression::Identifier("foobar".to_owned())),
+            program.statements[0],
+        );
+    }
+
+    #[test]
+    fn integer_literals() {
+        let input = "5;";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            1,
+            program.statements.len(),
+            "Parser errors: {:?}",
+            parser.errors
+        );
+
+        assert_eq!(
+            Statement::Expression(Expression::Integer(5)),
             program.statements[0],
         );
     }

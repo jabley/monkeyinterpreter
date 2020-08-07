@@ -1,6 +1,7 @@
 #[derive(Debug, Eq, PartialEq)]
 pub enum Expression {
     Identifier(String),
+    Integer(i64),
 }
 
 #[derive(Debug, Eq, PartialEq)]
