@@ -1,4 +1,4 @@
-use crate::ast::{Program, Statement};
+use crate::ast::{Expression, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 
@@ -8,6 +8,7 @@ type Result<T> = std::result::Result<T, ParserError>;
 pub enum ParserError {
     ExpectedAssign(Token),
     ExpectedIdentifierToken(Token),
+    ExpectedPrefixToken(Token),
 }
 
 pub struct Parser<'a> {
@@ -56,7 +57,7 @@ impl<'a> Parser<'a> {
         match self.cur_token {
             Token::Let => self.parse_let_statement(),
             Token::Return => self.parse_return_statement(),
-            _ => unimplemented!(),
+            _ => self.parse_expression_statement(),
         }
     }
 
@@ -94,6 +95,40 @@ impl<'a> Parser<'a> {
         Ok(Statement::Return)
     }
 
+    fn parse_expression_statement(&mut self) -> Result<Statement> {
+        let expression = self.parse_expression();
+
+        if self.peek_token == Token::SemiColon {
+            self.next_token();
+        }
+
+        expression.map(Statement::Expression)
+    }
+
+    fn parse_expression(&mut self) -> Result<Expression> {
+        self.prefix_parse()
+            .or_else(|_| Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())))
+    }
+
+    fn prefix_parse(&mut self) -> Result<Expression> {
+        match self.cur_token {
+            Token::Ident(_) => self.parse_identifier(),
+            _ => unimplemented!(),
+        }
+    }
+
+    fn parse_identifier(&self) -> Result<Expression> {
+        self.parse_identifier_string().map(Expression::Identifier)
+    }
+
+    fn parse_identifier_string(&self) -> Result<String> {
+        if let Token::Ident(ident) = &self.cur_token {
+            Ok(ident.to_string())
+        } else {
+            Err(ParserError::ExpectedIdentifierToken(self.cur_token.clone()))
+        }
+    }
+
     fn expect_peek(&mut self, token: Token, expected: fn(Token) -> ParserError) -> Result<()> {
         if self.peek_token != token {
             return Err(expected(self.peek_token.clone()));
@@ -105,7 +140,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::ast::Statement;
+    use crate::ast::{Expression, Statement};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -178,6 +213,11 @@ foobar;
             program.statements.len(),
             "Parser errors: {:?}",
             parser.errors
+        );
+
+        assert_eq!(
+            Statement::Expression(Expression::Identifier("foobar".to_owned())),
+            program.statements[0],
         );
     }
 }
