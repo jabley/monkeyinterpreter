@@ -69,6 +69,10 @@ impl<'a> Parser<'a> {
         Program { statements }
     }
 
+    pub fn errors(&self) -> &[ParserError] {
+        &self.errors
+    }
+
     fn parse_statement(&mut self) -> Result<Statement> {
         match self.cur_token {
             Token::Let => self.parse_let_statement(),
@@ -394,6 +398,46 @@ foobar;
                     Box::new(Expression::Integer(right))
                 ))]
             );
+        }
+    }
+
+    #[test]
+    fn operator_precedence() {
+        test_parsing(vec![
+            ("-a * b", "((-a) * b);"),
+            ("!-a", "(!(-a));"),
+            ("a + b + c", "((a + b) + c);"),
+            ("a + b - c", "((a + b) - c);"),
+            ("a * b * c", "((a * b) * c);"),
+            ("a * b / c", "((a * b) / c);"),
+            ("a + b / c", "(a + (b / c));"),
+            ("a + b * c + d / e - f", "(((a + (b * c)) + (d / e)) - f);"),
+            ("3 + 4; -5 * 5", "(3 + 4);((-5) * 5);"),
+            ("5 > 4 == 3 < 4", "((5 > 4) == (3 < 4));"),
+            ("5 < 4 != 3 > 4", "((5 < 4) != (3 > 4));"),
+            (
+                "3 + 4 * 5 == 3 * 1 + 4 * 5",
+                "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)));",
+            ),
+        ]);
+    }
+
+    fn test_parsing(tests: Vec<(&str, &str)>) {
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+            check_parser_errors(&parser);
+
+            assert_eq!(program.to_string(), expected);
+        }
+    }
+
+    fn check_parser_errors(parser: &Parser) {
+        let errors = parser.errors();
+        if errors.len() > 0 {
+            panic!("got parser errors: {:?}", errors);
         }
     }
 }
