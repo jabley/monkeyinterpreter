@@ -105,16 +105,17 @@ impl fmt::Display for BlockStatement {
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Statement {
-    Let(String),
-    Return,
+    Let(String, Expression),
+    Return(Option<Expression>),
     Expression(Expression),
 }
 
 impl fmt::Display for Statement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            Statement::Let(ident) => write!(f, "let {};", ident),
-            Statement::Return => write!(f, "return;"),
+            Statement::Let(ident, value) => write!(f, "let {} = {};", ident, value),
+            Statement::Return(None) => write!(f, "return;"),
+            Statement::Return(Some(value)) => write!(f, "return {};", value),
             Statement::Expression(exp) => write!(f, "{};", exp),
         }
     }

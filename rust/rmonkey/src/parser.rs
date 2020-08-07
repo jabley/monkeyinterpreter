@@ -101,23 +101,30 @@ impl<'a> Parser<'a> {
         self.expect_peek(Token::Assign, ParserError::ExpectedAssign)?;
         self.next_token();
 
-        // TODO(jabley): parse the expression properly.
-        while self.cur_token != Token::SemiColon {
-            self.next_token();
-        }
+        let value = self.parse_expression(Precedence::Lowest)?;
 
-        Ok(Statement::Let(name))
+        self.skip_optional_semicolon();
+
+        Ok(Statement::Let(name, value))
     }
 
     fn parse_return_statement(&mut self) -> Result<Statement> {
         self.next_token();
 
-        // TODO(jabley): parse the expression properly.
-        while self.cur_token != Token::SemiColon {
+        let value = match self.cur_token {
+            Token::SemiColon | Token::Eof => None,
+            _ => Some(self.parse_expression(Precedence::Lowest)?),
+        };
+
+        self.skip_optional_semicolon();
+
+        Ok(Statement::Return(value))
+    }
+
+    fn skip_optional_semicolon(&mut self) {
+        if self.peek_token == Token::SemiColon {
             self.next_token();
         }
-
-        Ok(Statement::Return)
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
@@ -374,56 +381,80 @@ mod test {
 
     #[test]
     fn let_statement() {
-        let input = "
-let x = 5;
-let y = 10;
-let foobar = 838383;
-        ";
+        let tests = vec![
+            (
+                "let x = 5;",
+                vec![Statement::Let(
+                    "x".to_string(),
+                    Expression::IntegerLiteral(5),
+                )],
+            ),
+            (
+                "let x = 5",
+                vec![Statement::Let(
+                    "x".to_string(),
+                    Expression::IntegerLiteral(5),
+                )],
+            ),
+            (
+                "let y = 10;",
+                vec![Statement::Let(
+                    "y".to_string(),
+                    Expression::IntegerLiteral(10),
+                )],
+            ),
+            (
+                "let foobar = 838383;",
+                vec![Statement::Let(
+                    "foobar".to_string(),
+                    Expression::IntegerLiteral(838383),
+                )],
+            ),
+        ];
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
 
-        assert_eq!(
-            3,
-            program.statements.len(),
-            "Parser errors: {:?}",
-            parser.errors
-        );
+            check_parser_errors(&parser);
 
-        assert_eq!(
-            vec![
-                Statement::Let("x".to_string()),
-                Statement::Let("y".to_string()),
-                Statement::Let("foobar".to_string()),
-            ],
-            program.statements
-        );
+            assert_eq!(expected, program.statements);
+        }
     }
 
     #[test]
     fn return_statement() {
-        let input = "
-return 5;
-return 10;
-return 993322;
-";
+        let tests = vec![
+            ("return;", vec![Statement::Return(None)]),
+            ("return", vec![Statement::Return(None)]),
+            (
+                "return 5",
+                vec![Statement::Return(Some(Expression::IntegerLiteral(5)))],
+            ),
+            (
+                "return 5;",
+                vec![Statement::Return(Some(Expression::IntegerLiteral(5)))],
+            ),
+            (
+                "return 10;",
+                vec![Statement::Return(Some(Expression::IntegerLiteral(10)))],
+            ),
+            (
+                "return 993322;",
+                vec![Statement::Return(Some(Expression::IntegerLiteral(993322)))],
+            ),
+        ];
 
-        let lexer = Lexer::new(input);
-        let mut parser = Parser::new(lexer);
-        let program = parser.parse_program();
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+            let program = parser.parse_program();
 
-        assert_eq!(
-            3,
-            program.statements.len(),
-            "Parser errors: {:?}",
-            parser.errors
-        );
+            check_parser_errors(&parser);
 
-        assert_eq!(
-            vec![Statement::Return, Statement::Return, Statement::Return,],
-            program.statements
-        );
+            assert_eq!(expected, program.statements);
+        }
     }
 
     #[test]
