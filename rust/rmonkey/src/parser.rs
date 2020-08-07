@@ -116,7 +116,7 @@ impl<'a> Parser<'a> {
             Token::Ident(_) => self.parse_identifier(),
             Token::Int(_) => self.parse_integer(),
             Token::Bang | Token::Minus => self.parse_prefix(),
-            _ => unimplemented!(),
+            _ => unimplemented!("{}", self.cur_token),
         }
     }
 
