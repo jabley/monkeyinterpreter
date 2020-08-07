@@ -2,6 +2,13 @@
 pub enum Expression {
     Identifier(String),
     Integer(i64),
+    Prefix(PrefixOperator, Box<Expression>),
+}
+
+#[derive(Debug, Eq, PartialEq)]
+pub enum PrefixOperator {
+    Bang,
+    Minus,
 }
 
 #[derive(Debug, Eq, PartialEq)]

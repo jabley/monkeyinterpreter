@@ -1,4 +1,4 @@
-use crate::ast::{Expression, Program, Statement};
+use crate::ast::{Expression, Program, PrefixOperator, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 
@@ -115,6 +115,7 @@ impl<'a> Parser<'a> {
         match self.cur_token {
             Token::Ident(_) => self.parse_identifier(),
             Token::Int(_) => self.parse_integer(),
+            Token::Bang | Token::Minus => self.parse_prefix(),
             _ => unimplemented!(),
         }
     }
@@ -139,6 +140,21 @@ impl<'a> Parser<'a> {
         }
     }
 
+    fn parse_prefix(&mut self) -> Result<Expression> {
+        let operator = self.parse_prefix_token()?;
+        self.next_token();
+        let expression = self.parse_expression()?;
+        Ok(Expression::Prefix(operator, Box::new(expression)))
+    }
+
+    fn parse_prefix_token(&self) -> Result<PrefixOperator> {
+        match self.cur_token {
+            Token::Bang => Ok(PrefixOperator::Bang),
+            Token::Minus => Ok(PrefixOperator::Minus),
+            _ => Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())),
+        }
+    }
+
     fn expect_peek(&mut self, token: Token, expected: fn(Token) -> ParserError) -> Result<()> {
         if self.peek_token != token {
             return Err(expected(self.peek_token.clone()));
@@ -150,7 +166,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::ast::{Expression, Statement};
+    use crate::ast::{Expression, PrefixOperator, Statement};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -249,6 +265,39 @@ foobar;
         assert_eq!(
             Statement::Expression(Expression::Integer(5)),
             program.statements[0],
+        );
+    }
+
+    #[test]
+    fn prefix_expressions() {
+        let input = "
+-5;
+!15;
+";
+
+        let lexer = Lexer::new(input);
+        let mut parser = Parser::new(lexer);
+        let program = parser.parse_program();
+
+        assert_eq!(
+            2,
+            program.statements.len(),
+            "Parser errors: {:?}",
+            parser.errors
+        );
+
+        assert_eq!(
+            vec!(
+                Statement::Expression(Expression::Prefix(
+                    PrefixOperator::Minus,
+                    Box::new(Expression::Integer(5))
+                )),
+                Statement::Expression(Expression::Prefix(
+                    PrefixOperator::Bang,
+                    Box::new(Expression::Integer(15))
+                )),
+            ),
+            program.statements,
         );
     }
 }
