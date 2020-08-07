@@ -20,6 +20,7 @@ type Result<T> = std::result::Result<T, ParserError>;
 pub enum ParserError {
     ExpectedAssign(Token),
     ExpectedBooleanToken(Token),
+    ExpectedCloseParen(Token),
     ExpectedIdentifierToken(Token),
     ExpectedInfixToken(Token),
     ExpectedIntegerToken(Token),
@@ -151,6 +152,7 @@ impl<'a> Parser<'a> {
             Token::Int(_) => self.parse_integer(),
             Token::Bang | Token::Minus => self.parse_prefix(),
             Token::True | Token::False => self.parse_boolean(),
+            Token::OpenParen => self.parse_grouped_expression(),
             _ => unimplemented!("{}", self.cur_token),
         }
     }
@@ -188,6 +190,16 @@ impl<'a> Parser<'a> {
         self.next_token();
         let expression = self.parse_expression(Precedence::Prefix)?;
         Ok(Expression::Prefix(operator, Box::new(expression)))
+    }
+
+    fn parse_grouped_expression(&mut self) -> Result<Expression> {
+        self.next_token();
+
+        let exp = self.parse_expression(Precedence::Lowest)?;
+     
+        self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
+
+        Ok(exp)
     }
 
     fn parse_prefix_token(&self) -> Result<PrefixOperator> {
@@ -239,7 +251,7 @@ impl<'a> Parser<'a> {
         if self.peek_token != token {
             return Err(expected(self.peek_token.clone()));
         }
-
+        self.next_token();
         Ok(())
     }
 }
@@ -466,6 +478,11 @@ foobar;
                 "3 + 4 * 5 == 3 * 1 + 4 * 5",
                 "((3 + (4 * 5)) == ((3 * 1) + (4 * 5)));",
             ),
+            ("1 + (2 + 3) + 4", "((1 + (2 + 3)) + 4);"),
+            ("(5 + 5) * 2", "((5 + 5) * 2);"),
+            ("2 / (5 + 5)", "(2 / (5 + 5));"),
+            ("-(5 + 5)", "(-(5 + 5));"),
+            ("!(true == true)", "(!(true == true));"),
         ]);
     }
 
