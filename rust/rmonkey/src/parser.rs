@@ -19,6 +19,7 @@ type Result<T> = std::result::Result<T, ParserError>;
 #[derive(Debug)]
 pub enum ParserError {
     ExpectedAssign(Token),
+    ExpectedBooleanToken(Token),
     ExpectedIdentifierToken(Token),
     ExpectedInfixToken(Token),
     ExpectedIntegerToken(Token),
@@ -149,7 +150,16 @@ impl<'a> Parser<'a> {
             Token::Ident(_) => self.parse_identifier(),
             Token::Int(_) => self.parse_integer(),
             Token::Bang | Token::Minus => self.parse_prefix(),
+            Token::True | Token::False => self.parse_boolean(),
             _ => unimplemented!("{}", self.cur_token),
+        }
+    }
+
+    fn parse_boolean(&self) -> Result<Expression> {
+        match self.cur_token {
+            Token::True => Ok(Expression::Boolean(true)),
+            Token::False => Ok(Expression::Boolean(false)),
+            _ => Err(ParserError::ExpectedBooleanToken(self.cur_token.clone())),
         }
     }
 
@@ -397,6 +407,25 @@ foobar;
                     Box::new(Expression::Integer(left)),
                     Box::new(Expression::Integer(right))
                 ))]
+            );
+        }
+    }
+
+    #[test]
+    fn boolean_expression() {
+        let tests = vec![("true;", true), ("false;", false)];
+
+        for (input, expected) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+
+            check_parser_errors(&parser);
+
+            assert_eq!(
+                program.statements,
+                vec![Statement::Expression(Expression::Boolean(expected)),]
             );
         }
     }

@@ -2,6 +2,7 @@ use std::fmt;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum Expression {
+    Boolean(bool),
     Identifier(String),
     Integer(i64),
     Infix(InfixOperator, Box<Expression>, Box<Expression>),
@@ -11,6 +12,7 @@ pub enum Expression {
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
+            Expression::Boolean(b) => write!(f, "{}", b),
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::Integer(value) => write!(f, "{}", value),
             Expression::Prefix(operator, exp) => write!(f, "({}{})", operator, exp),
