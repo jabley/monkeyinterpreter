@@ -1,4 +1,4 @@
-use crate::ast::{Expression, InfixOperator, PrefixOperator, Program, Statement};
+use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
 
@@ -20,10 +20,13 @@ type Result<T> = std::result::Result<T, ParserError>;
 pub enum ParserError {
     ExpectedAssign(Token),
     ExpectedBooleanToken(Token),
+    ExpectedCloseBrace(Token),
     ExpectedCloseParen(Token),
     ExpectedIdentifierToken(Token),
     ExpectedInfixToken(Token),
     ExpectedIntegerToken(Token),
+    ExpectedOpenBrace(Token),
+    ExpectedOpenParen(Token),
     ExpectedPrefixToken(Token),
 }
 
@@ -127,6 +130,19 @@ impl<'a> Parser<'a> {
         expression.map(Statement::Expression)
     }
 
+    fn parse_block_statement(&mut self) -> Result<BlockStatement> {
+        let mut statements = vec![];
+
+        self.next_token();
+
+        while self.cur_token != Token::CloseBrace && self.cur_token != Token::Eof {
+            statements.push(self.parse_statement()?);
+            self.next_token();
+        }
+
+        Ok(BlockStatement { statements })
+    }
+
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
         let mut left = self
             .prefix_parse()
@@ -153,8 +169,34 @@ impl<'a> Parser<'a> {
             Token::Bang | Token::Minus => self.parse_prefix(),
             Token::True | Token::False => self.parse_boolean(),
             Token::OpenParen => self.parse_grouped_expression(),
+            Token::If => self.parse_if_expression(),
             _ => unimplemented!("{}", self.cur_token),
         }
+    }
+
+    fn parse_if_expression(&mut self) -> Result<Expression> {
+        self.expect_peek(Token::OpenParen, ParserError::ExpectedOpenParen)?;
+        self.next_token();
+
+        let condition = self.parse_expression(Precedence::Lowest)?;
+        self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
+        self.expect_peek(Token::OpenBrace, ParserError::ExpectedOpenBrace)?;
+
+        let consequence = self.parse_block_statement()?;
+
+        let alternative = if self.peek_token == Token::Else {
+            self.next_token();
+            self.expect_peek(Token::OpenBrace, ParserError::ExpectedOpenBrace)?;
+            Some(self.parse_block_statement()?)
+        } else {
+            None
+        };
+
+        Ok(Expression::If(
+            Box::new(condition),
+            consequence,
+            alternative,
+        ))
     }
 
     fn parse_boolean(&self) -> Result<Expression> {
@@ -196,7 +238,6 @@ impl<'a> Parser<'a> {
         self.next_token();
 
         let exp = self.parse_expression(Precedence::Lowest)?;
-     
         self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
 
         Ok(exp)
@@ -483,6 +524,11 @@ foobar;
             ("2 / (5 + 5)", "(2 / (5 + 5));"),
             ("-(5 + 5)", "(-(5 + 5));"),
             ("!(true == true)", "(!(true == true));"),
+            ("if (x < y) { x }", "if (x < y) { x; };"),
+            (
+                "if (x < y) { x } else { y }",
+                "if (x < y) { x; } else { y; };",
+            ),
         ]);
     }
 

@@ -4,6 +4,7 @@ use std::fmt;
 pub enum Expression {
     Boolean(bool),
     Identifier(String),
+    If(Box<Expression>, BlockStatement, Option<BlockStatement>),
     Integer(i64),
     Infix(InfixOperator, Box<Expression>, Box<Expression>),
     Prefix(PrefixOperator, Box<Expression>),
@@ -14,6 +15,13 @@ impl fmt::Display for Expression {
         match self {
             Expression::Boolean(b) => write!(f, "{}", b),
             Expression::Identifier(ident) => write!(f, "{}", ident),
+            Expression::If(condition, consequence, alternative) => {
+                write!(f, "if {} {}", condition, consequence)?;
+                if let Some(alt) = alternative {
+                    write!(f, " else {}", alt)?;
+                }
+                Ok(())
+            }
             Expression::Integer(value) => write!(f, "{}", value),
             Expression::Prefix(operator, exp) => write!(f, "({}{})", operator, exp),
             Expression::Infix(operator, left, right) => {
@@ -62,6 +70,21 @@ impl fmt::Display for InfixOperator {
             InfixOperator::Asterisk => write!(f, "*"),
             InfixOperator::Slash => write!(f, "/"),
         }
+    }
+}
+
+/// BlockStatement allows for blocks of code, as part of an if expression, for example.
+#[derive(Debug, Eq, PartialEq)]
+pub struct BlockStatement {
+    pub statements: Vec<Statement>,
+}
+
+impl fmt::Display for BlockStatement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        for stmt in &self.statements {
+            write!(f, "{{ {} }}", stmt)?;
+        }
+        Ok(())
     }
 }
 
