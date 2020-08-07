@@ -1,6 +1,18 @@
-use crate::ast::{Expression, Program, PrefixOperator, Statement};
+use crate::ast::{Expression, InfixOperator, PrefixOperator, Program, Statement};
 use crate::lexer::Lexer;
 use crate::token::Token;
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone)]
+pub enum Precedence {
+    Lowest,
+    Equals,      // == or !=
+    LessGreater, // > or <
+    Sum,         // +
+    Product,     // *
+    Prefix,      // -X or !X
+    Call,        // myFunction(X)
+    Index,       // array[index]
+}
 
 type Result<T> = std::result::Result<T, ParserError>;
 
@@ -8,9 +20,12 @@ type Result<T> = std::result::Result<T, ParserError>;
 pub enum ParserError {
     ExpectedAssign(Token),
     ExpectedIdentifierToken(Token),
+    ExpectedInfixToken(Token),
     ExpectedIntegerToken(Token),
     ExpectedPrefixToken(Token),
 }
+
+type InfixParseFn = fn(&mut Parser, Expression) -> Result<Expression>;
 
 pub struct Parser<'a> {
     lexer: Lexer<'a>,
@@ -97,7 +112,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression_statement(&mut self) -> Result<Statement> {
-        let expression = self.parse_expression();
+        let expression = self.parse_expression(Precedence::Lowest);
 
         if self.peek_token == Token::SemiColon {
             self.next_token();
@@ -106,9 +121,23 @@ impl<'a> Parser<'a> {
         expression.map(Statement::Expression)
     }
 
-    fn parse_expression(&mut self) -> Result<Expression> {
-        self.prefix_parse()
-            .or_else(|_| Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())))
+    fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
+        let mut left = self
+            .prefix_parse()
+            .or_else(|_| Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())))?;
+
+        while self.peek_token != Token::SemiColon
+            && precedence < self.infix_token(&self.peek_token).0
+        {
+            if let Some(infix) = self.infix_parse_fn() {
+                self.next_token();
+                left = infix(self, left)?;
+            } else {
+                return Ok(left);
+            }
+        }
+
+        Ok(left)
     }
 
     fn prefix_parse(&mut self) -> Result<Expression> {
@@ -143,7 +172,7 @@ impl<'a> Parser<'a> {
     fn parse_prefix(&mut self) -> Result<Expression> {
         let operator = self.parse_prefix_token()?;
         self.next_token();
-        let expression = self.parse_expression()?;
+        let expression = self.parse_expression(Precedence::Prefix)?;
         Ok(Expression::Prefix(operator, Box::new(expression)))
     }
 
@@ -152,6 +181,43 @@ impl<'a> Parser<'a> {
             Token::Bang => Ok(PrefixOperator::Bang),
             Token::Minus => Ok(PrefixOperator::Minus),
             _ => Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())),
+        }
+    }
+
+    fn parse_infix_expression(&mut self, left: Expression) -> Result<Expression> {
+        let (precedence, infix) = self.infix_token(&self.cur_token);
+        let i = infix.ok_or_else(|| ParserError::ExpectedInfixToken(self.cur_token.clone()))?;
+        self.next_token();
+        let right = self.parse_expression(precedence)?;
+
+        Ok(Expression::Infix(i, Box::new(left), Box::new(right)))
+    }
+
+    fn infix_token(&self, token: &Token) -> (Precedence, Option<InfixOperator>) {
+        match token {
+            Token::Eq => (Precedence::Equals, Some(InfixOperator::Eq)),
+            Token::Ne => (Precedence::Equals, Some(InfixOperator::NotEq)),
+            Token::Lt => (Precedence::LessGreater, Some(InfixOperator::Lt)),
+            Token::Gt => (Precedence::LessGreater, Some(InfixOperator::Gt)),
+            Token::Plus => (Precedence::Sum, Some(InfixOperator::Plus)),
+            Token::Minus => (Precedence::Sum, Some(InfixOperator::Minus)),
+            Token::Slash => (Precedence::Product, Some(InfixOperator::Slash)),
+            Token::Asterisk => (Precedence::Product, Some(InfixOperator::Asterisk)),
+            _ => (Precedence::Lowest, None),
+        }
+    }
+
+    fn infix_parse_fn(&mut self) -> Option<InfixParseFn> {
+        match &self.peek_token {
+            Token::Plus
+            | Token::Minus
+            | Token::Asterisk
+            | Token::Slash
+            | Token::Eq
+            | Token::Ne
+            | Token::Lt
+            | Token::Gt => Some(|parser, left| parser.parse_infix_expression(left)),
+            _ => None,
         }
     }
 
@@ -166,7 +232,7 @@ impl<'a> Parser<'a> {
 
 #[cfg(test)]
 mod test {
-    use crate::ast::{Expression, PrefixOperator, Statement};
+    use crate::ast::{Expression, InfixOperator, PrefixOperator, Statement};
     use crate::lexer::Lexer;
     use crate::parser::Parser;
 
@@ -299,5 +365,35 @@ foobar;
             ),
             program.statements,
         );
+    }
+
+    #[test]
+    fn infix_expression() {
+        let tests = vec![
+            ("5 + 5;", 5, InfixOperator::Plus, 5),
+            ("5 - 5;", 5, InfixOperator::Minus, 5),
+            ("5 * 5;", 5, InfixOperator::Asterisk, 5),
+            ("5 / 5;", 5, InfixOperator::Slash, 5),
+            ("5 > 5;", 5, InfixOperator::Gt, 5),
+            ("5 < 5;", 5, InfixOperator::Lt, 5),
+            ("5 == 5;", 5, InfixOperator::Eq, 5),
+            ("5 != 5;", 5, InfixOperator::NotEq, 5),
+        ];
+
+        for (input, left, operator, right) in tests {
+            let lexer = Lexer::new(input);
+            let mut parser = Parser::new(lexer);
+
+            let program = parser.parse_program();
+
+            assert_eq!(
+                program.statements,
+                vec![Statement::Expression(Expression::Infix(
+                    operator,
+                    Box::new(Expression::Integer(left)),
+                    Box::new(Expression::Integer(right))
+                ))]
+            );
+        }
     }
 }
