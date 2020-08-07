@@ -3,6 +3,7 @@ use std::fmt;
 #[derive(Debug, Eq, PartialEq)]
 pub enum Expression {
     Boolean(bool),
+    FunctionLiteral(Vec<String>, BlockStatement),
     Identifier(String),
     If(Box<Expression>, BlockStatement, Option<BlockStatement>),
     Integer(i64),
@@ -14,6 +15,9 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Boolean(b) => write!(f, "{}", b),
+            Expression::FunctionLiteral(parameters, body) => {
+                write!(f, "fn({}) {}", parameters.join(", "), body)
+            }
             Expression::Identifier(ident) => write!(f, "{}", ident),
             Expression::If(condition, consequence, alternative) => {
                 write!(f, "if {} {}", condition, consequence)?;

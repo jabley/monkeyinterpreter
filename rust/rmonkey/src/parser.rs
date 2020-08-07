@@ -170,6 +170,7 @@ impl<'a> Parser<'a> {
             Token::True | Token::False => self.parse_boolean(),
             Token::OpenParen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
+            Token::Function => self.parse_function_literal(),
             _ => unimplemented!("{}", self.cur_token),
         }
     }
@@ -197,6 +198,18 @@ impl<'a> Parser<'a> {
             consequence,
             alternative,
         ))
+    }
+
+    fn parse_function_literal(&mut self) -> Result<Expression> {
+        self.expect_peek(Token::OpenParen, ParserError::ExpectedOpenParen)?;
+
+        let parameters = self.parse_function_parameters()?;
+
+        self.expect_peek(Token::OpenBrace, ParserError::ExpectedOpenBrace)?;
+
+        let body = self.parse_block_statement()?;
+
+        Ok(Expression::FunctionLiteral(parameters, body))
     }
 
     fn parse_boolean(&self) -> Result<Expression> {
@@ -241,6 +254,31 @@ impl<'a> Parser<'a> {
         self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
 
         Ok(exp)
+    }
+
+    fn parse_function_parameters(&mut self) -> Result<Vec<String>> {
+        let mut identifiers = vec![];
+
+        // No parameters
+        if self.peek_token == Token::CloseParen {
+            self.next_token();
+            return Ok(identifiers);
+        }
+
+        self.next_token(); // slurp the identifier
+
+        identifiers.push(self.parse_identifier_string()?);
+
+        while self.peek_token == Token::Comma {
+            self.next_token(); // skip the comma
+            self.next_token(); // slurp the identifier
+
+            identifiers.push(self.parse_identifier_string()?);
+        }
+
+        self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
+
+        Ok(identifiers)
     }
 
     fn parse_prefix_token(&self) -> Result<PrefixOperator> {
@@ -529,6 +567,10 @@ foobar;
                 "if (x < y) { x } else { y }",
                 "if (x < y) { x; } else { y; };",
             ),
+            ("fn() { }", "fn() ;"),
+            ("fn(x) { }", "fn(x) ;"),
+            ("fn(x, y, z) { }", "fn(x, y, z) ;"),
+            ("fn(x, y) { x + y; }", "fn(x, y) { (x + y); };"),
         ]);
     }
 
