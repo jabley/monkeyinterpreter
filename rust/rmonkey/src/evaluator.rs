@@ -57,9 +57,13 @@ fn eval_expression(expression: &Expression) -> EvalResult {
 
 fn eval_prefix_expression(operator: &PrefixOperator, expression: &Expression) -> EvalResult {
     let obj = eval_expression(expression)?;
+
     match operator {
         PrefixOperator::Bang => Ok(Object::Boolean(!obj.is_truthy())),
-        _ => Err(EvalError::UnsupportedPrefixOperator(operator.clone(), obj)),
+        PrefixOperator::Minus => match obj {
+            Object::Integer(v) => Ok(Object::Integer(-v)),
+            _ => Err(EvalError::UnsupportedPrefixOperator(operator.clone(), obj)),
+        },
     }
 }
 
@@ -72,12 +76,25 @@ mod tests {
 
     #[test]
     fn eval_integer_expression() {
-        expect_values(vec![("5;", "5"), ("10;", "10")]);
+        expect_values(vec![
+            ("5;", "5"),
+            ("10;", "10"),
+            ("-5", "-5"),
+            ("-10", "-10"),
+        ]);
     }
 
     #[test]
     fn eval_boolean_expression() {
         expect_values(vec![("true;", "true"), ("false;", "false")]);
+    }
+
+    #[test]
+    fn eval_nonsensical_minus_expresions() {
+        expect_errors(vec![
+            ("-true", "Cannot evaluate -true"),
+            ("-false", "Cannot evaluate -false"),
+        ]);
     }
 
     #[test]
@@ -103,6 +120,19 @@ mod tests {
                         "expected `{}`, but got error={} for `{}`",
                         expected, err, input
                     );
+                }
+            }
+        }
+    }
+
+    fn expect_errors(tests: Vec<(&str, &str)>) {
+        for (input, expected_message) in &tests {
+            match eval_input(input) {
+                Ok(obj) => {
+                    panic!("no error object returned. got=`{}` for `{}`", obj, input);
+                }
+                Err(err) => {
+                    assert_eq!(&err.to_string(), expected_message, "for `{}`", input);
                 }
             }
         }
