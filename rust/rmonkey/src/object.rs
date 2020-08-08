@@ -14,3 +14,13 @@ impl fmt::Display for Object {
         }
     }
 }
+
+impl Object {
+    pub fn is_truthy(&self) -> bool {
+        match self {
+            Object::Null => false,
+            Object::Boolean(b) => *b,
+            _ => true,
+        }
+    }
+}

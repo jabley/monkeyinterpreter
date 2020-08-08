@@ -1,4 +1,5 @@
 use crate::ast::Expression;
+use crate::ast::PrefixOperator;
 use crate::ast::Program;
 use crate::ast::Statement;
 use crate::object::Object;
@@ -9,6 +10,7 @@ type EvalResult = std::result::Result<Object, EvalError>;
 pub enum EvalError {
     UnimplementedExpression(String),
     UnimplementedStatement(String),
+    UnsupportedPrefixOperator(PrefixOperator, Object),
 }
 
 impl fmt::Display for EvalError {
@@ -19,6 +21,9 @@ impl fmt::Display for EvalError {
             }
             EvalError::UnimplementedStatement(s) => {
                 write!(f, "Not yet implemented evaluating the expression '{}'", s)
+            }
+            EvalError::UnsupportedPrefixOperator(operator, obj) => {
+                write!(f, "Cannot evaluate {}{}", operator, obj)
             }
         }
     }
@@ -45,7 +50,16 @@ fn eval_expression(expression: &Expression) -> EvalResult {
     match expression {
         Expression::IntegerLiteral(v) => Ok(Object::Integer(*v)),
         Expression::Boolean(b) => Ok(Object::Boolean(*b)),
+        Expression::Prefix(operator, expression) => eval_prefix_expression(operator, expression),
         expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
+    }
+}
+
+fn eval_prefix_expression(operator: &PrefixOperator, expression: &Expression) -> EvalResult {
+    let obj = eval_expression(expression)?;
+    match operator {
+        PrefixOperator::Bang => Ok(Object::Boolean(!obj.is_truthy())),
+        _ => Err(EvalError::UnsupportedPrefixOperator(operator.clone(), obj)),
     }
 }
 
@@ -64,6 +78,18 @@ mod tests {
     #[test]
     fn eval_boolean_expression() {
         expect_values(vec![("true;", "true"), ("false;", "false")]);
+    }
+
+    #[test]
+    fn eval_bang_expression() {
+        expect_values(vec![
+            ("!true;", "false"),
+            ("!false;", "true"),
+            ("!5;", "false"),
+            ("!!true;", "true"),
+            ("!!false;", "false"),
+            ("!!5;;", "true"),
+        ]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {

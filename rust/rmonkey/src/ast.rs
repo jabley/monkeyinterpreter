@@ -46,7 +46,7 @@ impl fmt::Display for Expression {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum PrefixOperator {
     Bang,
     Minus,
