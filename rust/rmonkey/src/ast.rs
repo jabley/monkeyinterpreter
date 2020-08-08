@@ -61,7 +61,7 @@ impl fmt::Display for PrefixOperator {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum InfixOperator {
     Eq,
     NotEq,

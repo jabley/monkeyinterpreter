@@ -1,7 +1,4 @@
-use crate::ast::Expression;
-use crate::ast::PrefixOperator;
-use crate::ast::Program;
-use crate::ast::Statement;
+use crate::ast::{Expression, InfixOperator, PrefixOperator, Program, Statement};
 use crate::object::Object;
 use std::fmt;
 
@@ -10,7 +7,9 @@ type EvalResult = std::result::Result<Object, EvalError>;
 pub enum EvalError {
     UnimplementedExpression(String),
     UnimplementedStatement(String),
+    UnsupportedInfixOperator(InfixOperator, Object, Object),
     UnsupportedPrefixOperator(PrefixOperator, Object),
+    TypeMismatch(InfixOperator, Object, Object),
 }
 
 impl fmt::Display for EvalError {
@@ -24,6 +23,16 @@ impl fmt::Display for EvalError {
             }
             EvalError::UnsupportedPrefixOperator(operator, obj) => {
                 write!(f, "Cannot evaluate {}{}", operator, obj)
+            }
+            EvalError::TypeMismatch(operator, left, right) => write!(
+                f,
+                "Type mismatch: {} {} {}",
+                left.type_name(),
+                operator,
+                right.type_name()
+            ),
+            EvalError::UnsupportedInfixOperator(operator, left, right) => {
+                write!(f, "Cannot evaluate {}{}{}", left, operator, right)
             }
         }
     }
@@ -51,6 +60,7 @@ fn eval_expression(expression: &Expression) -> EvalResult {
         Expression::IntegerLiteral(v) => Ok(Object::Integer(*v)),
         Expression::Boolean(b) => Ok(Object::Boolean(*b)),
         Expression::Prefix(operator, expression) => eval_prefix_expression(operator, expression),
+        Expression::Infix(operator, left, right) => eval_infix_expression(operator, left, right),
         expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
     }
 }
@@ -64,6 +74,50 @@ fn eval_prefix_expression(operator: &PrefixOperator, expression: &Expression) ->
             Object::Integer(v) => Ok(Object::Integer(-v)),
             _ => Err(EvalError::UnsupportedPrefixOperator(operator.clone(), obj)),
         },
+    }
+}
+
+fn eval_infix_expression(
+    operator: &InfixOperator,
+    left_exp: &Expression,
+    right_exp: &Expression,
+) -> EvalResult {
+    let left_obj = eval_expression(left_exp)?;
+    let right_obj = eval_expression(right_exp)?;
+
+    match (left_obj, right_obj) {
+        (Object::Integer(left), Object::Integer(right)) => {
+            eval_integer_infix_expressions(operator, left, right)
+        }
+        (Object::Boolean(left), Object::Boolean(right)) => {
+            eval_boolean_infix_expressions(operator, left, right)
+        }
+        (left, right) => Err(EvalError::TypeMismatch(operator.clone(), left, right)),
+    }
+}
+
+fn eval_integer_infix_expressions(operator: &InfixOperator, left: i64, right: i64) -> EvalResult {
+    match operator {
+        InfixOperator::Eq => Ok(Object::Boolean(left == right)),
+        InfixOperator::NotEq => Ok(Object::Boolean(left != right)),
+        InfixOperator::Lt => Ok(Object::Boolean(left < right)),
+        InfixOperator::Gt => Ok(Object::Boolean(left > right)),
+        InfixOperator::Plus => Ok(Object::Integer(left + right)),
+        InfixOperator::Minus => Ok(Object::Integer(left - right)),
+        InfixOperator::Asterisk => Ok(Object::Integer(left * right)),
+        InfixOperator::Slash => Ok(Object::Integer(left / right)),
+    }
+}
+
+fn eval_boolean_infix_expressions(operator: &InfixOperator, left: bool, right: bool) -> EvalResult {
+    match operator {
+        InfixOperator::Eq => Ok(Object::Boolean(left == right)),
+        InfixOperator::NotEq => Ok(Object::Boolean(left != right)),
+        _ => Err(EvalError::UnsupportedInfixOperator(
+            operator.clone(),
+            Object::Boolean(left),
+            Object::Boolean(right),
+        )),
     }
 }
 
@@ -81,12 +135,43 @@ mod tests {
             ("10;", "10"),
             ("-5", "-5"),
             ("-10", "-10"),
+            ("5 + 5 + 5 + 5 - 10", "10"),
+            ("2 * 2 * 2 * 2 * 2", "32"),
+            ("-50 + 100 + -50", "0"),
+            ("5 * 2 + 10", "20"),
+            ("5 + 2 * 10", "25"),
+            ("20 + 2 * -10", "0"),
+            ("50 / 2 * 2 + 10", "60"),
+            ("2 * (5 + 10)", "30"),
+            ("3 * 3 * 3 + 10", "37"),
+            ("3 * (3 * 3) + 10", "37"),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", "50"),
         ]);
     }
 
     #[test]
     fn eval_boolean_expression() {
-        expect_values(vec![("true;", "true"), ("false;", "false")]);
+        expect_values(vec![
+            ("true;", "true"),
+            ("false;", "false"),
+            ("1 < 2", "true"),
+            ("1 > 2", "false"),
+            ("1 < 1", "false"),
+            ("1 > 1", "false"),
+            ("1 == 1", "true"),
+            ("1 != 1", "false"),
+            ("1 == 2", "false"),
+            ("1 != 2", "true"),
+            ("true == true", "true"),
+            ("false == false", "true"),
+            ("true == false", "false"),
+            ("true != false", "true"),
+            ("false != true", "true"),
+            ("(1 < 2) == true", "true"),
+            ("(1 < 2) == false", "false"),
+            ("(1 > 2) == true", "false"),
+            ("(1 > 2) == false", "true"),
+        ]);
     }
 
     #[test]
@@ -94,6 +179,10 @@ mod tests {
         expect_errors(vec![
             ("-true", "Cannot evaluate -true"),
             ("-false", "Cannot evaluate -false"),
+            ("5 - false", "Type mismatch: INTEGER - BOOLEAN"),
+            ("5 + false", "Type mismatch: INTEGER + BOOLEAN"),
+            ("5 * false", "Type mismatch: INTEGER * BOOLEAN"),
+            ("5 / false", "Type mismatch: INTEGER / BOOLEAN"),
         ]);
     }
 

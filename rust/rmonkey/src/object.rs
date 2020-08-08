@@ -1,4 +1,5 @@
 use std::fmt;
+
 pub enum Object {
     Null,
     Integer(i64),
@@ -21,6 +22,14 @@ impl Object {
             Object::Null => false,
             Object::Boolean(b) => *b,
             _ => true,
+        }
+    }
+
+    pub fn type_name(&self) -> &str {
+        match self {
+            Object::Boolean(_) => "BOOLEAN",
+            Object::Integer(_) => "INTEGER",
+            Object::Null => "NULL",
         }
     }
 }
