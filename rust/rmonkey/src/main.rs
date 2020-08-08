@@ -1,5 +1,7 @@
 pub mod ast;
+pub mod evaluator;
 pub mod lexer;
+pub mod object;
 pub mod parser;
 pub mod token;
 
@@ -33,7 +35,10 @@ fn main() {
             continue;
         }
 
-        println!("{}", program);
+        match evaluator::eval(&program) {
+            Ok(evaluated) => println!("{}", evaluated),
+            Err(err) => println!("ERROR: {}", err),
+        }
     }
 }
 
