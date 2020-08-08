@@ -28,6 +28,7 @@ pub enum ParserError {
     ExpectedOpenBrace(Token),
     ExpectedOpenParen(Token),
     ExpectedPrefixToken(Token),
+    UnexpectedKeyword(Token),
 }
 
 type InfixParseFn = fn(&mut Parser, Expression) -> Result<Expression>;
@@ -151,9 +152,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self, precedence: Precedence) -> Result<Expression> {
-        let mut left = self
-            .prefix_parse()
-            .or_else(|_| Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())))?;
+        let mut left = self.prefix_parse()?;
 
         while self.peek_token != Token::SemiColon
             && precedence < self.infix_token(&self.peek_token).0
@@ -170,7 +169,7 @@ impl<'a> Parser<'a> {
     }
 
     fn prefix_parse(&mut self) -> Result<Expression> {
-        match self.cur_token {
+        match &self.cur_token {
             Token::Ident(_) => self.parse_identifier(),
             Token::Int(_) => self.parse_integer(),
             Token::Bang | Token::Minus => self.parse_prefix(),
@@ -178,7 +177,10 @@ impl<'a> Parser<'a> {
             Token::OpenParen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
-            _ => unimplemented!("{}", self.cur_token),
+            t @ Token::Let => Err(ParserError::UnexpectedKeyword(t.clone())),
+            t @ Token::Return => Err(ParserError::UnexpectedKeyword(t.clone())),
+            t @ Token::Else => Err(ParserError::UnexpectedKeyword(t.clone())),
+            _ => Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())),
         }
     }
 
