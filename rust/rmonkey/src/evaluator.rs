@@ -44,6 +44,7 @@ fn eval_statement(statement: &Statement) -> EvalResult {
 fn eval_expression(expression: &Expression) -> EvalResult {
     match expression {
         Expression::IntegerLiteral(v) => Ok(Object::Integer(*v)),
+        Expression::Boolean(b) => Ok(Object::Boolean(*b)),
         expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
     }
 }
@@ -58,6 +59,11 @@ mod tests {
     #[test]
     fn eval_integer_expression() {
         expect_values(vec![("5;", "5"), ("10;", "10")]);
+    }
+
+    #[test]
+    fn eval_boolean_expression() {
+        expect_values(vec![("true;", "true"), ("false;", "false")]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {

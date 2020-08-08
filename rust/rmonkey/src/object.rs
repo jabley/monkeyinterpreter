@@ -2,6 +2,7 @@ use std::fmt;
 pub enum Object {
     Null,
     Integer(i64),
+    Boolean(bool),
 }
 
 impl fmt::Display for Object {
@@ -9,6 +10,7 @@ impl fmt::Display for Object {
         match self {
             Object::Null => write!(f, "null"),
             Object::Integer(v) => write!(f, "{}", v),
+            Object::Boolean(b) => write!(f, "{}", b),
         }
     }
 }
