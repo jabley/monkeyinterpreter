@@ -1,4 +1,4 @@
-use crate::ast::{Expression, InfixOperator, PrefixOperator, Program, Statement};
+use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
 use crate::object::Object;
 use std::fmt;
 
@@ -39,9 +39,13 @@ impl fmt::Display for EvalError {
 }
 
 pub fn eval(program: &Program) -> EvalResult {
+    eval_statements(&program.statements)
+}
+
+fn eval_statements(statements: &Vec<Statement>) -> EvalResult {
     let mut res = Object::Null;
 
-    for statement in &program.statements {
+    for statement in statements {
         res = eval_statement(statement)?;
     }
 
@@ -61,6 +65,9 @@ fn eval_expression(expression: &Expression) -> EvalResult {
         Expression::Boolean(b) => Ok(Object::Boolean(*b)),
         Expression::Prefix(operator, expression) => eval_prefix_expression(operator, expression),
         Expression::Infix(operator, left, right) => eval_infix_expression(operator, left, right),
+        Expression::If(condition, consequence, alternative) => {
+            eval_if_expression(condition, consequence, alternative)
+        }
         expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
     }
 }
@@ -119,6 +126,24 @@ fn eval_boolean_infix_expressions(operator: &InfixOperator, left: bool, right: b
             Object::Boolean(right),
         )),
     }
+}
+
+fn eval_if_expression(
+    condition: &Expression,
+    consequence: &BlockStatement,
+    alternative: &Option<BlockStatement>,
+) -> EvalResult {
+    let test = eval_expression(condition)?;
+
+    if test.is_truthy() {
+        return eval_statements(&consequence.statements);
+    }
+
+    if let Some(alt) = alternative {
+        return eval_statements(&alt.statements);
+    }
+
+    Ok(Object::Null)
 }
 
 #[cfg(test)]
@@ -195,6 +220,19 @@ mod tests {
             ("!!true;", "true"),
             ("!!false;", "false"),
             ("!!5;;", "true"),
+        ]);
+    }
+
+    #[test]
+    fn eval_if() {
+        expect_values(vec![
+            ("if (true) { 10 }", "10"),
+            ("if (false) { 10 }", "null"),
+            ("if (1) { 10", "10"),
+            ("if (1 < 2) { 10 }", "10"),
+            ("if (1 > 2) { 10 }", "null"),
+            ("if (1 < 2) { 10 } else { 20 }", "10"),
+            ("if (1 > 2) { 10 } else { 20 }", "20"),
         ]);
     }
 
