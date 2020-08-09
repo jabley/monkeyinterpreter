@@ -39,14 +39,29 @@ impl fmt::Display for EvalError {
 }
 
 pub fn eval(program: &Program) -> EvalResult {
-    eval_statements(&program.statements)
+    let mut result = Object::Null;
+
+    for statement in &program.statements {
+        result = eval_statement(statement)?;
+
+        if let Object::Return(value) = result {
+            return Ok(*value);
+        }
+    }
+
+    Ok(result)
 }
 
-fn eval_statements(statements: &Vec<Statement>) -> EvalResult {
+fn eval_block_statement(block: &BlockStatement) -> EvalResult {
     let mut res = Object::Null;
 
-    for statement in statements {
+    for statement in &block.statements {
         res = eval_statement(statement)?;
+
+        if let Object::Return(_) = res {
+            // Don't unwrap it here - want to propagate it back up the call stack
+            return Ok(res);
+        }
     }
 
     Ok(res)
@@ -55,7 +70,18 @@ fn eval_statements(statements: &Vec<Statement>) -> EvalResult {
 fn eval_statement(statement: &Statement) -> EvalResult {
     match statement {
         Statement::Expression(exp) => eval_expression(exp),
+        Statement::Return(exp) => eval_return_expression(exp),
         s => Err(EvalError::UnimplementedStatement(s.to_string())),
+    }
+}
+
+fn eval_return_expression(possibility: &Option<Expression>) -> EvalResult {
+    match possibility {
+        Some(expression) => {
+            let result = eval_expression(expression)?;
+            Ok(Object::Return(Box::new(result)))
+        }
+        None => Ok(Object::Return(Box::new(Object::Null))),
     }
 }
 
@@ -136,11 +162,11 @@ fn eval_if_expression(
     let test = eval_expression(condition)?;
 
     if test.is_truthy() {
-        return eval_statements(&consequence.statements);
+        return eval_block_statement(&consequence);
     }
 
     if let Some(alt) = alternative {
-        return eval_statements(&alt.statements);
+        return eval_block_statement(&alt);
     }
 
     Ok(Object::Null)
@@ -233,6 +259,29 @@ mod tests {
             ("if (1 > 2) { 10 }", "null"),
             ("if (1 < 2) { 10 } else { 20 }", "10"),
             ("if (1 > 2) { 10 } else { 20 }", "20"),
+        ]);
+    }
+
+    #[test]
+    fn eval_return() {
+        expect_values(vec![
+            ("return 10;", "10"),
+            ("return 10; 9;", "10"),
+            ("return 2 * 5; 9;", "10"),
+            ("9; return 2 * 5; 9;", "10"),
+            ("if (10 > 1) { return 10; }", "10"),
+            (
+                "
+if (10 > 1) {
+  if (10 > 1) {
+    return 10;
+  }
+
+  return 1;
+}
+",
+                "10",
+            ),
         ]);
     }
 
