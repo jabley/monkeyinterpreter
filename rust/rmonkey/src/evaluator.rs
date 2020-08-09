@@ -22,7 +22,7 @@ impl fmt::Display for EvalError {
                 write!(f, "Not yet implemented evaluating the statement '{}'", s)
             }
             EvalError::UnsupportedPrefixOperator(operator, obj) => {
-                write!(f, "Cannot evaluate {}{}", operator, obj)
+                write!(f, "Unknown operator: {}{}", operator, obj.type_name())
             }
             EvalError::TypeMismatch(operator, left, right) => write!(
                 f,
@@ -31,9 +31,13 @@ impl fmt::Display for EvalError {
                 operator,
                 right.type_name()
             ),
-            EvalError::UnsupportedInfixOperator(operator, left, right) => {
-                write!(f, "Cannot evaluate {}{}{}", left, operator, right)
-            }
+            EvalError::UnsupportedInfixOperator(operator, left, right) => write!(
+                f,
+                "Unknown operator: {} {} {}",
+                left.type_name(),
+                operator,
+                right.type_name()
+            ),
         }
     }
 }
@@ -226,14 +230,31 @@ mod tests {
     }
 
     #[test]
-    fn eval_nonsensical_minus_expresions() {
+    fn eval_error_handling() {
         expect_errors(vec![
-            ("-true", "Cannot evaluate -true"),
-            ("-false", "Cannot evaluate -false"),
+            ("-true", "Unknown operator: -BOOLEAN"),
+            ("-false", "Unknown operator: -BOOLEAN"),
             ("5 - false", "Type mismatch: INTEGER - BOOLEAN"),
             ("5 + false", "Type mismatch: INTEGER + BOOLEAN"),
+            ("5 + true;", "Type mismatch: INTEGER + BOOLEAN"),
+            ("5 + true; 5;", "Type mismatch: INTEGER + BOOLEAN"),
             ("5 * false", "Type mismatch: INTEGER * BOOLEAN"),
             ("5 / false", "Type mismatch: INTEGER / BOOLEAN"),
+            ("true + false", "Unknown operator: BOOLEAN + BOOLEAN"),
+            ("true + false + true + false;", "Unknown operator: BOOLEAN + BOOLEAN"),
+            ("5; true + false; 5", "Unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "
+            if (10 > 1) {
+                if (10 > 1) {
+                  return true + false;
+                }
+              
+                return 1;
+              }
+            ",
+                "Unknown operator: BOOLEAN + BOOLEAN",
+            ),
         ]);
     }
 
