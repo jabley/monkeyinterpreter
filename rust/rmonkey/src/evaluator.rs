@@ -19,7 +19,7 @@ impl fmt::Display for EvalError {
                 write!(f, "Not yet implemented evaluating the expression '{}'", e)
             }
             EvalError::UnimplementedStatement(s) => {
-                write!(f, "Not yet implemented evaluating the expression '{}'", s)
+                write!(f, "Not yet implemented evaluating the statement '{}'", s)
             }
             EvalError::UnsupportedPrefixOperator(operator, obj) => {
                 write!(f, "Cannot evaluate {}{}", operator, obj)
@@ -240,7 +240,7 @@ mod tests {
         for (input, expected) in &tests {
             match eval_input(input) {
                 Ok(obj) => {
-                    assert_eq!(obj.to_string(), expected.to_string(), "for `{}`", input);
+                    assert_eq!(expected.to_string(), obj.to_string(), "for `{}`", input);
                 }
                 Err(err) => {
                     panic!(
@@ -259,7 +259,7 @@ mod tests {
                     panic!("no error object returned. got=`{}` for `{}`", obj, input);
                 }
                 Err(err) => {
-                    assert_eq!(&err.to_string(), expected_message, "for `{}`", input);
+                    assert_eq!(expected_message, &err.to_string(), "for `{}`", input);
                 }
             }
         }
