@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod environment;
 pub mod evaluator;
 pub mod lexer;
 pub mod object;
@@ -9,6 +10,7 @@ use std::io;
 use std::io::BufRead;
 use std::io::Write;
 
+use crate::environment::Environment;
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 
@@ -35,7 +37,9 @@ fn main() {
             continue;
         }
 
-        match evaluator::eval(&program) {
+        let mut env = Environment::new();
+
+        match evaluator::eval(&program, &mut env) {
             Ok(evaluated) => println!("{}", evaluated),
             Err(err) => println!("ERROR: {}", err),
         }

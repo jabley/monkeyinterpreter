@@ -1,12 +1,13 @@
 use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
+use crate::environment::Environment;
 use crate::object::Object;
 use std::fmt;
 
 type EvalResult = std::result::Result<Object, EvalError>;
 
 pub enum EvalError {
+    IdentifierNotFound(String),
     UnimplementedExpression(String),
-    UnimplementedStatement(String),
     UnsupportedInfixOperator(InfixOperator, Object, Object),
     UnsupportedPrefixOperator(PrefixOperator, Object),
     TypeMismatch(InfixOperator, Object, Object),
@@ -17,9 +18,6 @@ impl fmt::Display for EvalError {
         match self {
             EvalError::UnimplementedExpression(e) => {
                 write!(f, "Not yet implemented evaluating the expression '{}'", e)
-            }
-            EvalError::UnimplementedStatement(s) => {
-                write!(f, "Not yet implemented evaluating the statement '{}'", s)
             }
             EvalError::UnsupportedPrefixOperator(operator, obj) => {
                 write!(f, "Unknown operator: {}{}", operator, obj.type_name())
@@ -38,15 +36,16 @@ impl fmt::Display for EvalError {
                 operator,
                 right.type_name()
             ),
+            EvalError::IdentifierNotFound(name) => write!(f, "Identifier not found: {}", name),
         }
     }
 }
 
-pub fn eval(program: &Program) -> EvalResult {
+pub fn eval(program: &Program, env: &mut Environment) -> EvalResult {
     let mut result = Object::Null;
 
     for statement in &program.statements {
-        result = eval_statement(statement)?;
+        result = eval_statement(statement, env)?;
 
         if let Object::Return(value) = result {
             return Ok(*value);
@@ -56,11 +55,11 @@ pub fn eval(program: &Program) -> EvalResult {
     Ok(result)
 }
 
-fn eval_block_statement(block: &BlockStatement) -> EvalResult {
+fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> EvalResult {
     let mut res = Object::Null;
 
     for statement in &block.statements {
-        res = eval_statement(statement)?;
+        res = eval_statement(statement, env)?;
 
         if let Object::Return(_) = res {
             // Don't unwrap it here - want to propagate it back up the call stack
@@ -71,39 +70,57 @@ fn eval_block_statement(block: &BlockStatement) -> EvalResult {
     Ok(res)
 }
 
-fn eval_statement(statement: &Statement) -> EvalResult {
+fn eval_statement(statement: &Statement, env: &mut Environment) -> EvalResult {
     match statement {
-        Statement::Expression(exp) => eval_expression(exp),
-        Statement::Return(exp) => eval_return_expression(exp),
-        s => Err(EvalError::UnimplementedStatement(s.to_string())),
+        Statement::Expression(exp) => eval_expression(exp, env),
+        Statement::Return(exp) => eval_return_expression(exp, env),
+        Statement::Let(name, expression) => {
+            let result = eval_expression(expression, env)?;
+            env.set(name, result.clone());
+            Ok(result)
+        }
     }
 }
 
-fn eval_return_expression(possibility: &Option<Expression>) -> EvalResult {
+fn eval_return_expression(possibility: &Option<Expression>, env: &mut Environment) -> EvalResult {
     match possibility {
         Some(expression) => {
-            let result = eval_expression(expression)?;
+            let result = eval_expression(expression, env)?;
             Ok(Object::Return(Box::new(result)))
         }
         None => Ok(Object::Return(Box::new(Object::Null))),
     }
 }
 
-fn eval_expression(expression: &Expression) -> EvalResult {
+fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult {
     match expression {
         Expression::IntegerLiteral(v) => Ok(Object::Integer(*v)),
         Expression::Boolean(b) => Ok(Object::Boolean(*b)),
-        Expression::Prefix(operator, expression) => eval_prefix_expression(operator, expression),
-        Expression::Infix(operator, left, right) => eval_infix_expression(operator, left, right),
-        Expression::If(condition, consequence, alternative) => {
-            eval_if_expression(condition, consequence, alternative)
+        Expression::Prefix(operator, expression) => {
+            eval_prefix_expression(operator, expression, env)
         }
+        Expression::Infix(operator, left, right) => {
+            eval_infix_expression(operator, left, right, env)
+        }
+        Expression::If(condition, consequence, alternative) => {
+            eval_if_expression(condition, consequence, alternative, env)
+        }
+        Expression::Identifier(name) => eval_identifier(name, env),
         expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
     }
 }
 
-fn eval_prefix_expression(operator: &PrefixOperator, expression: &Expression) -> EvalResult {
-    let obj = eval_expression(expression)?;
+fn eval_identifier(name: &str, env: &mut Environment) -> EvalResult {
+    env.get(name)
+        .ok_or_else(|| EvalError::IdentifierNotFound(name.to_string()))
+}
+
+fn eval_prefix_expression(
+    operator: &PrefixOperator,
+    expression: &Expression,
+    env: &mut Environment,
+) -> EvalResult {
+    let obj = eval_expression(expression, env)?;
 
     match operator {
         PrefixOperator::Bang => Ok(Object::Boolean(!obj.is_truthy())),
@@ -118,9 +135,10 @@ fn eval_infix_expression(
     operator: &InfixOperator,
     left_exp: &Expression,
     right_exp: &Expression,
+    env: &mut Environment,
 ) -> EvalResult {
-    let left_obj = eval_expression(left_exp)?;
-    let right_obj = eval_expression(right_exp)?;
+    let left_obj = eval_expression(left_exp, env)?;
+    let right_obj = eval_expression(right_exp, env)?;
 
     match (left_obj, right_obj) {
         (Object::Integer(left), Object::Integer(right)) => {
@@ -162,15 +180,16 @@ fn eval_if_expression(
     condition: &Expression,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
+    env: &mut Environment,
 ) -> EvalResult {
-    let test = eval_expression(condition)?;
+    let test = eval_expression(condition, env)?;
 
     if test.is_truthy() {
-        return eval_block_statement(&consequence);
+        return eval_block_statement(&consequence, env);
     }
 
     if let Some(alt) = alternative {
-        return eval_block_statement(&alt);
+        return eval_block_statement(&alt, env);
     }
 
     Ok(Object::Null)
@@ -178,6 +197,7 @@ fn eval_if_expression(
 
 #[cfg(test)]
 mod tests {
+    use crate::environment::Environment;
     use crate::evaluator;
     use crate::evaluator::EvalResult;
     use crate::lexer::Lexer;
@@ -241,7 +261,10 @@ mod tests {
             ("5 * false", "Type mismatch: INTEGER * BOOLEAN"),
             ("5 / false", "Type mismatch: INTEGER / BOOLEAN"),
             ("true + false", "Unknown operator: BOOLEAN + BOOLEAN"),
-            ("true + false + true + false;", "Unknown operator: BOOLEAN + BOOLEAN"),
+            (
+                "true + false + true + false;",
+                "Unknown operator: BOOLEAN + BOOLEAN",
+            ),
             ("5; true + false; 5", "Unknown operator: BOOLEAN + BOOLEAN"),
             (
                 "
@@ -255,6 +278,7 @@ mod tests {
             ",
                 "Unknown operator: BOOLEAN + BOOLEAN",
             ),
+            ("foobar", "Identifier not found: foobar"),
         ]);
     }
 
@@ -306,6 +330,16 @@ if (10 > 1) {
         ]);
     }
 
+    #[test]
+    fn let_statements() {
+        expect_values(vec![
+            ("let a = 5; a;", "5"),
+            ("let a = 5 * 5; a;", "25"),
+            ("let a = 5; let b = a; b;", "5"),
+            ("let a = 5; let b = a; let c = a + b + 5; c;", "15"),
+        ]);
+    }
+
     fn expect_values(tests: Vec<(&str, &str)>) {
         for (input, expected) in &tests {
             match eval_input(input) {
@@ -340,6 +374,7 @@ if (10 > 1) {
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-        evaluator::eval(&program)
+        let mut env = Environment::new();
+        evaluator::eval(&program, &mut env)
     }
 }
