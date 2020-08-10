@@ -1,6 +1,6 @@
 use std::fmt;
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Expression {
     Boolean(bool),
     Call(Box<Expression>, Vec<Expression>),
@@ -89,7 +89,7 @@ impl fmt::Display for InfixOperator {
 }
 
 /// BlockStatement allows for blocks of code, as part of an if expression, for example.
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct BlockStatement {
     pub statements: Vec<Statement>,
 }
@@ -103,7 +103,7 @@ impl fmt::Display for BlockStatement {
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Statement {
     Let(String, Expression),
     Return(Option<Expression>),

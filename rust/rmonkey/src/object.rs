@@ -1,3 +1,5 @@
+use crate::ast::BlockStatement;
+use crate::environment::Environment;
 use std::fmt;
 
 #[derive(Clone)]
@@ -6,6 +8,7 @@ pub enum Object {
     Integer(i64),
     Boolean(bool),
     Return(Box<Object>),
+    Function(Vec<String>, BlockStatement, Environment),
 }
 
 impl fmt::Display for Object {
@@ -15,6 +18,9 @@ impl fmt::Display for Object {
             Object::Integer(v) => write!(f, "{}", v),
             Object::Boolean(b) => write!(f, "{}", b),
             Object::Return(obj) => write!(f, "{}", obj),
+            Object::Function(parameters, body, _) => {
+                write!(f, "fn({}) {{\n{}\n}}", parameters.join(", "), body)
+            }
         }
     }
 }
@@ -34,6 +40,7 @@ impl Object {
             Object::Integer(_) => "INTEGER",
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",
+            Object::Function(_, _, _) => "FUNCTION",
         }
     }
 }

@@ -106,8 +106,17 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
             eval_if_expression(condition, consequence, alternative, env)
         }
         Expression::Identifier(name) => eval_identifier(name, env),
+        Expression::FunctionLiteral(parameters, body) => eval_function(parameters, body, env),
         expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
     }
+}
+
+fn eval_function(parameters: &[String], body: &BlockStatement, env: &Environment) -> EvalResult {
+    Ok(Object::Function(
+        parameters.to_owned(),
+        body.clone(),
+        env.clone(),
+    ))
 }
 
 fn eval_identifier(name: &str, env: &mut Environment) -> EvalResult {
@@ -338,6 +347,11 @@ if (10 > 1) {
             ("let a = 5; let b = a; b;", "5"),
             ("let a = 5; let b = a; let c = a + b + 5; c;", "15"),
         ]);
+    }
+
+    #[test]
+    fn fn_expressions() {
+        expect_values(vec![("fn(x) { x + 2; }", "fn(x) {\n{ (x + 2); }\n}")]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
