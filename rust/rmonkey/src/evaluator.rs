@@ -110,6 +110,7 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
             let arguments = eval_expressions(arg_expressions, env)?;
             apply_function(&function, arguments)
         }
+        Expression::StringLiteral(_) => unimplemented!(),
     }
 }
 

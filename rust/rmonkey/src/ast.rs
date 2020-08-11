@@ -10,6 +10,7 @@ pub enum Expression {
     IntegerLiteral(i64),
     Infix(InfixOperator, Box<Expression>, Box<Expression>),
     Prefix(PrefixOperator, Box<Expression>),
+    StringLiteral(String),
 }
 
 impl fmt::Display for Expression {
@@ -42,6 +43,7 @@ impl fmt::Display for Expression {
             Expression::Infix(operator, left, right) => {
                 write!(f, "({} {} {})", left, operator, right)
             }
+            Expression::StringLiteral(s) => write!(f, "\"{}\"", s),
         }
     }
 }

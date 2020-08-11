@@ -28,6 +28,7 @@ pub enum ParserError {
     ExpectedOpenBrace(Token),
     ExpectedOpenParen(Token),
     ExpectedPrefixToken(Token),
+    ExpectedStringToken(Token),
     UnexpectedKeyword(Token),
 }
 
@@ -172,6 +173,7 @@ impl<'a> Parser<'a> {
         match &self.cur_token {
             Token::Ident(_) => self.parse_identifier(),
             Token::Int(_) => self.parse_integer(),
+            Token::String(_) => self.parse_string(),
             Token::Bang | Token::Minus => self.parse_prefix(),
             Token::True | Token::False => self.parse_boolean(),
             Token::OpenParen => self.parse_grouped_expression(),
@@ -246,6 +248,14 @@ impl<'a> Parser<'a> {
             Ok(Expression::IntegerLiteral(i))
         } else {
             Err(ParserError::ExpectedIntegerToken(self.cur_token.clone()))
+        }
+    }
+
+    fn parse_string(&self) -> Result<Expression> {
+        if let Token::String(s) = &self.cur_token {
+            Ok(Expression::StringLiteral(s.to_string()))
+        } else {
+            Err(ParserError::ExpectedStringToken(self.cur_token.clone()))
         }
     }
 
@@ -640,6 +650,7 @@ foobar;
             ("fn(x, y, z) { }", "fn(x, y, z) ;"),
             ("fn(x, y) { x + y; }", "fn(x, y) { (x + y); };"),
             ("add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5));"),
+            (r#""hello world""#, r#""hello world";"#),
         ]);
     }
 
