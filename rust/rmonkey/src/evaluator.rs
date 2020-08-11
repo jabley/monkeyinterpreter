@@ -7,7 +7,7 @@ type EvalResult = std::result::Result<Object, EvalError>;
 
 pub enum EvalError {
     IdentifierNotFound(String),
-    UnimplementedExpression(String),
+    NotCallable(Object),
     UnsupportedInfixOperator(InfixOperator, Object, Object),
     UnsupportedPrefixOperator(PrefixOperator, Object),
     TypeMismatch(InfixOperator, Object, Object),
@@ -16,9 +16,6 @@ pub enum EvalError {
 impl fmt::Display for EvalError {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
-            EvalError::UnimplementedExpression(e) => {
-                write!(f, "Not yet implemented evaluating the expression '{}'", e)
-            }
             EvalError::UnsupportedPrefixOperator(operator, obj) => {
                 write!(f, "Unknown operator: {}{}", operator, obj.type_name())
             }
@@ -37,6 +34,7 @@ impl fmt::Display for EvalError {
                 right.type_name()
             ),
             EvalError::IdentifierNotFound(name) => write!(f, "Identifier not found: {}", name),
+            EvalError::NotCallable(obj) => write!(f, "Not a function: {}", obj),
         }
     }
 }
@@ -107,8 +105,55 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
         }
         Expression::Identifier(name) => eval_identifier(name, env),
         Expression::FunctionLiteral(parameters, body) => eval_function(parameters, body, env),
-        expression => Err(EvalError::UnimplementedExpression(expression.to_string())),
+        Expression::Call(function_exp, arg_expressions) => {
+            let function = eval_expression(function_exp, env)?;
+            let arguments = eval_expressions(arg_expressions, env)?;
+            apply_function(&function, arguments)
+        }
     }
+}
+
+fn apply_function(function: &Object, arguments: Vec<Object>) -> EvalResult {
+    match function {
+        Object::Function(params, body, env) => {
+            let mut new_env = extend_function_env(params, arguments, env);
+            let evaluated = eval_block_statement(&body, &mut new_env)?;
+            unwrap_return_value(evaluated)
+        }
+        _ => Err(EvalError::NotCallable(function.clone())),
+    }
+}
+
+fn unwrap_return_value(obj: Object) -> EvalResult {
+    match obj {
+        Object::Return(value) => Ok(*value),
+        _ => Ok(obj),
+    }
+}
+
+fn extend_function_env(
+    params: &[String],
+    arguments: Vec<Object>,
+    env: &Environment,
+) -> Environment {
+    let mut result = Environment::extend(env);
+
+    for (i, p) in params.iter().enumerate() {
+        let arg = arguments.get(i).cloned().unwrap_or(Object::Null);
+        result.set(p, arg);
+    }
+
+    result
+}
+
+fn eval_expressions(exps: &[Expression], env: &mut Environment) -> Result<Vec<Object>, EvalError> {
+    let mut results = vec![];
+
+    for exp in exps {
+        results.push(eval_expression(exp, env)?);
+    }
+
+    Ok(results)
 }
 
 fn eval_function(parameters: &[String], body: &BlockStatement, env: &Environment) -> EvalResult {
@@ -288,6 +333,7 @@ mod tests {
                 "Unknown operator: BOOLEAN + BOOLEAN",
             ),
             ("foobar", "Identifier not found: foobar"),
+            ("let x = 5; x();", "Not a function: 5"),
         ]);
     }
 
@@ -352,6 +398,36 @@ if (10 > 1) {
     #[test]
     fn fn_expressions() {
         expect_values(vec![("fn(x) { x + 2; }", "fn(x) {\n{ (x + 2); }\n}")]);
+    }
+
+    #[test]
+    fn fn_application() {
+        expect_values(vec![
+            ("let identity = fn(x) { x; }; identity(5);", "5"),
+            ("let identity = fn(x) { return x; }; identity(5);", "5"),
+            ("let double = fn(x) { x * 2; }; double(5);", "10"),
+            ("let add = fn(x, y) { x + y; }; add(5, 5);", "10"),
+            (
+                "let add = fn(x, y) { x + y; }; add(5 + 5, add(5, 5));",
+                "20",
+            ),
+            ("fn(x) { x; }(5)", "5"),
+        ]);
+    }
+
+    #[test]
+    fn function_with_closures() {
+        expect_values(vec![(
+            r#"
+let newAdder = fn(x) {
+    fn(y) { x + y };
+};
+
+let addTwo = newAdder(2);
+addTwo(2);
+"#,
+            "4",
+        )]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
