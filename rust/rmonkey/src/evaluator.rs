@@ -1,4 +1,5 @@
 use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
+use crate::object::builtins;
 use crate::object::environment::Environment;
 use crate::object::{EvalError, EvalResult, Object};
 
@@ -84,6 +85,7 @@ fn apply_function(function: &Object, arguments: Vec<Object>) -> EvalResult {
             let evaluated = eval_block_statement(&body, &mut new_env)?;
             unwrap_return_value(evaluated)
         }
+        Object::BuiltIn(func) => func(arguments),
         _ => Err(EvalError::NotCallable(function.clone())),
     }
 }
@@ -129,8 +131,15 @@ fn eval_function(parameters: &[String], body: &BlockStatement, env: &Environment
 }
 
 fn eval_identifier(name: &str, env: &mut Environment) -> EvalResult {
-    env.get(name)
-        .ok_or_else(|| EvalError::IdentifierNotFound(name.to_string()))
+    if let Some(r) = env.get(name) {
+        return Ok(r);
+    }
+
+    if let Some(r) = builtins::lookup(name) {
+        return Ok(r);
+    }
+
+    Err(EvalError::IdentifierNotFound(name.to_string()))
 }
 
 fn eval_prefix_expression(
@@ -421,6 +430,22 @@ addTwo(2);
     #[test]
     fn string_concatenation() {
         expect_values(vec![(r#""Hello" + " " + "World!""#, "Hello World!")]);
+    }
+
+    #[test]
+    fn builtin_functions() {
+        expect_values(vec![
+            (r#"len("")"#, "0"),
+            (r#"len("four")"#, "4"),
+            (r#"len("hello world")"#, "11"),
+        ]);
+        expect_errors(vec![
+            (r#"len(1)"#, "argument to `len` not supported, got INTEGER"),
+            (
+                r#"len("one", "two")"#,
+                "wrong number of arguments. got=2, want=1",
+            ),
+        ]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {

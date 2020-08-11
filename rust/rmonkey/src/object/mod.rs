@@ -2,6 +2,7 @@ use crate::ast::{BlockStatement, InfixOperator, PrefixOperator};
 pub use crate::object::environment::Environment;
 use std::fmt;
 
+pub mod builtins;
 pub mod environment;
 
 #[derive(Clone)]
@@ -12,6 +13,7 @@ pub enum Object {
     Return(Box<Object>),
     Function(Vec<String>, BlockStatement, Environment),
     String(String),
+    BuiltIn(BuiltIn),
 }
 
 impl fmt::Display for Object {
@@ -25,6 +27,7 @@ impl fmt::Display for Object {
                 write!(f, "fn({}) {{\n{}\n}}", parameters.join(", "), body)
             }
             Object::String(s) => write!(f, "{}", s),
+            Object::BuiltIn(_) => write!(f, "built-in function"),
         }
     }
 }
@@ -46,18 +49,22 @@ impl Object {
             Object::Return(_) => "RETURN",
             Object::Function(_, _, _) => "FUNCTION",
             Object::String(_) => "STRING",
+            Object::BuiltIn(_) => "BUILTIN",
         }
     }
 }
 
 pub type EvalResult = std::result::Result<Object, EvalError>;
+pub type BuiltIn = fn(Vec<Object>) -> EvalResult;
 
 pub enum EvalError {
     IdentifierNotFound(String),
     NotCallable(Object),
+    UnsupportedArguments(String, Vec<Object>),
     UnsupportedInfixOperator(InfixOperator, Object, Object),
     UnsupportedPrefixOperator(PrefixOperator, Object),
     TypeMismatch(InfixOperator, Object, Object),
+    WrongArgumentCount { expected: usize, given: usize },
 }
 
 impl fmt::Display for EvalError {
@@ -82,6 +89,30 @@ impl fmt::Display for EvalError {
             ),
             EvalError::IdentifierNotFound(name) => write!(f, "Identifier not found: {}", name),
             EvalError::NotCallable(obj) => write!(f, "Not a function: {}", obj),
+            EvalError::UnsupportedArguments(function, args) => write!(
+                f,
+                "argument to `{}` not supported, got {}",
+                function,
+                args.iter()
+                    .map(|a| a.type_name())
+                    .collect::<Vec<&str>>()
+                    .join(", ")
+            ),
+            EvalError::WrongArgumentCount { expected, given } => write!(
+                f,
+                "wrong number of arguments. got={}, want={}",
+                given, expected
+            ),
         }
     }
+}
+
+pub fn assert_argument_count(expected: usize, arguments: &[Object]) -> Result<(), EvalError> {
+    if arguments.len() != expected {
+        return Err(EvalError::WrongArgumentCount {
+            expected,
+            given: arguments.len(),
+        });
+    }
+    Ok(())
 }
