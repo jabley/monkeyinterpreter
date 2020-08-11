@@ -8,6 +8,7 @@ pub enum Token {
 
     Ident(String),
     Int(i64),
+    String(String),
 
     /// "="
     Assign,
@@ -67,6 +68,7 @@ impl fmt::Display for Token {
 
             Token::Ident(ident) => write!(f, "{}", ident),
             Token::Int(int) => write!(f, "{}", int),
+            Token::String(s) => write!(f, "{}", s),
 
             Token::Assign => write!(f, "="),
             Token::Plus => write!(f, "+"),

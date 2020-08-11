@@ -55,6 +55,19 @@ impl<'a> Lexer<'a> {
         number.parse().unwrap()
     }
 
+    fn read_string(&mut self) -> String {
+        let mut res = String::new();
+
+        while self.peek_if(|c| c != '"') {
+            res.push(self.read_char().unwrap());
+        }
+
+        // Consume the last '""
+        self.read_char();
+
+        res
+    }
+
     fn skip_whitespace(&mut self) {
         while self.peek_if(|c| c.is_whitespace()) {
             self.read_char();
@@ -93,6 +106,7 @@ impl<'a> Lexer<'a> {
             Some('}') => Token::CloseBrace,
             Some(',') => Token::Comma,
             Some(';') => Token::SemiColon,
+            Some('"') => Token::String(self.read_string()),
             Some(c) => {
                 if is_id_start(c) {
                     token::lookup_ident(&self.read_identifier(c))
@@ -151,7 +165,7 @@ mod tests {
     #[test]
     fn test_next_token_on_monkey() {
         test_lexing(
-            "let five = 5;
+            r#"let five = 5;
 
 let ten = 10;
 
@@ -173,7 +187,9 @@ if (5 < 10) {
 10 == 10;
 
 10 != 9;
-",
+"foobar"
+"foo bar"
+"#,
             vec![
                 Token::Let,
                 Token::Ident("five".to_owned()),
@@ -248,6 +264,8 @@ if (5 < 10) {
                 Token::Ne,
                 Token::Int(9),
                 Token::SemiColon,
+                Token::String("foobar".to_owned()),
+                Token::String("foo bar".to_owned()),
                 Token::Eof,
             ],
         );
