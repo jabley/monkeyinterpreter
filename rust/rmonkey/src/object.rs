@@ -9,6 +9,7 @@ pub enum Object {
     Boolean(bool),
     Return(Box<Object>),
     Function(Vec<String>, BlockStatement, Environment),
+    String(String),
 }
 
 impl fmt::Display for Object {
@@ -21,6 +22,7 @@ impl fmt::Display for Object {
             Object::Function(parameters, body, _) => {
                 write!(f, "fn({}) {{\n{}\n}}", parameters.join(", "), body)
             }
+            Object::String(s) => write!(f, "{}", s),
         }
     }
 }
@@ -41,6 +43,7 @@ impl Object {
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",
             Object::Function(_, _, _) => "FUNCTION",
+            Object::String(_) => "STRING",
         }
     }
 }

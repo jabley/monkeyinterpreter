@@ -110,7 +110,7 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
             let arguments = eval_expressions(arg_expressions, env)?;
             apply_function(&function, arguments)
         }
-        Expression::StringLiteral(_) => unimplemented!(),
+        Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
     }
 }
 
@@ -429,6 +429,11 @@ addTwo(2);
 "#,
             "4",
         )]);
+    }
+
+    #[test]
+    fn string_literal() {
+        expect_values(vec![(r#""Hello world!";"#, "Hello world!")]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
