@@ -1,5 +1,4 @@
 pub mod ast;
-pub mod environment;
 pub mod evaluator;
 pub mod lexer;
 pub mod object;
@@ -10,8 +9,8 @@ use std::io;
 use std::io::BufRead;
 use std::io::Write;
 
-use crate::environment::Environment;
 use crate::lexer::Lexer;
+use crate::object::environment::Environment;
 use crate::parser::Parser;
 
 fn main() {

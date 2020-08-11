@@ -1,43 +1,6 @@
 use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
-use crate::environment::Environment;
-use crate::object::Object;
-use std::fmt;
-
-type EvalResult = std::result::Result<Object, EvalError>;
-
-pub enum EvalError {
-    IdentifierNotFound(String),
-    NotCallable(Object),
-    UnsupportedInfixOperator(InfixOperator, Object, Object),
-    UnsupportedPrefixOperator(PrefixOperator, Object),
-    TypeMismatch(InfixOperator, Object, Object),
-}
-
-impl fmt::Display for EvalError {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            EvalError::UnsupportedPrefixOperator(operator, obj) => {
-                write!(f, "Unknown operator: {}{}", operator, obj.type_name())
-            }
-            EvalError::TypeMismatch(operator, left, right) => write!(
-                f,
-                "Type mismatch: {} {} {}",
-                left.type_name(),
-                operator,
-                right.type_name()
-            ),
-            EvalError::UnsupportedInfixOperator(operator, left, right) => write!(
-                f,
-                "Unknown operator: {} {} {}",
-                left.type_name(),
-                operator,
-                right.type_name()
-            ),
-            EvalError::IdentifierNotFound(name) => write!(f, "Identifier not found: {}", name),
-            EvalError::NotCallable(obj) => write!(f, "Not a function: {}", obj),
-        }
-    }
-}
+use crate::object::environment::Environment;
+use crate::object::{EvalError, EvalResult, Object};
 
 pub fn eval(program: &Program, env: &mut Environment) -> EvalResult {
     let mut result = Object::Null;
@@ -270,10 +233,10 @@ fn eval_if_expression(
 
 #[cfg(test)]
 mod tests {
-    use crate::environment::Environment;
     use crate::evaluator;
     use crate::evaluator::EvalResult;
     use crate::lexer::Lexer;
+    use crate::object::environment::Environment;
     use crate::parser::Parser;
 
     #[test]
