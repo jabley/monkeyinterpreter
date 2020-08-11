@@ -202,6 +202,9 @@ fn eval_infix_expression(
         (Object::Boolean(left), Object::Boolean(right)) => {
             eval_boolean_infix_expressions(operator, left, right)
         }
+        (Object::String(left), Object::String(right)) => {
+            eval_string_infix_expression(operator, left, right)
+        }
         (left, right) => Err(EvalError::TypeMismatch(operator.clone(), left, right)),
     }
 }
@@ -227,6 +230,21 @@ fn eval_boolean_infix_expressions(operator: &InfixOperator, left: bool, right: b
             operator.clone(),
             Object::Boolean(left),
             Object::Boolean(right),
+        )),
+    }
+}
+
+fn eval_string_infix_expression(
+    operator: &InfixOperator,
+    left: String,
+    right: String,
+) -> EvalResult {
+    match operator {
+        InfixOperator::Plus => Ok(Object::String(left + &right)),
+        _ => Err(EvalError::UnsupportedInfixOperator(
+            operator.clone(),
+            Object::String(left),
+            Object::String(right),
         )),
     }
 }
@@ -335,6 +353,7 @@ mod tests {
             ),
             ("foobar", "Identifier not found: foobar"),
             ("let x = 5; x();", "Not a function: 5"),
+            (r#""Hello" - "World""#, "Unknown operator: STRING - STRING"),
         ]);
     }
 
@@ -434,6 +453,11 @@ addTwo(2);
     #[test]
     fn string_literal() {
         expect_values(vec![(r#""Hello world!";"#, "Hello world!")]);
+    }
+
+    #[test]
+    fn string_concatenation() {
+        expect_values(vec![(r#""Hello" + " " + "World!""#, "Hello World!")]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
