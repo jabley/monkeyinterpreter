@@ -461,12 +461,27 @@ addTwo(2);
             (r#"len("")"#, "0"),
             (r#"len("four")"#, "4"),
             (r#"len("hello world")"#, "11"),
+            ("len([1, 2, 3])", "3"),
+            ("len([])", "0"),
+            ("first([1, 2, 3])", "1"),
+            ("first([])", "null"),
+            ("last([1, 2, 3])", "3"),
+            ("last([])", "null"),
+            ("rest([1, 2, 3])", "[2, 3]"),
+            ("rest([])", "null"),
+            ("push([], 1)", "[1]"),
         ]);
         expect_errors(vec![
             (r#"len(1)"#, "argument to `len` not supported, got INTEGER"),
             (
                 r#"len("one", "two")"#,
                 "wrong number of arguments. got=2, want=1",
+            ),
+            ("first(1)", "argument to `first` not supported, got INTEGER"),
+            ("last(1)", "argument to `last` not supported, got INTEGER"),
+            (
+                "push(1, 1)",
+                "argument to `push` not supported, got INTEGER, INTEGER",
             ),
         ]);
     }
