@@ -76,7 +76,23 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
         }
         Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
         Expression::ArrayLiteral(elements) => eval_array_literal(elements, env),
-        Expression::IndexExpression(_, _) => unimplemented!(),
+        Expression::IndexExpression(left, index) => eval_index_expression(left, index, env),
+    }
+}
+
+fn eval_index_expression(
+    left: &Expression,
+    index: &Expression,
+    env: &mut Environment,
+) -> EvalResult {
+    let left_value = eval_expression(left, env)?;
+    let index_value = eval_expression(index, env)?;
+
+    match (left_value, index_value) {
+        (Object::Array(elements), Object::Integer(i)) => {
+            Ok(elements.get(i as usize).cloned().unwrap_or(Object::Null))
+        }
+        (l, i) => Err(EvalError::UnsupportedIndexOperator(l, i)),
     }
 }
 
@@ -457,7 +473,41 @@ addTwo(2);
 
     #[test]
     fn array_literals() {
-        expect_values(vec![("[1, 2 * 2, 3 + 3]", "[1, 4, 6]")])
+        expect_values(vec![
+            ("[1, 2 * 2, 3 + 3]", "[1, 4, 6]"),
+            ("[1, 2 * 2, 3 + 3][0]", "1"),
+            ("[1, 2 * 2, 3 + 3][1]", "4"),
+            ("[1, 2 * 2, 3 + 3][2]", "6"),
+        ])
+    }
+
+    #[test]
+    fn array_index_expressions() {
+        expect_values(vec![
+            ("[1, 2 * 2, 3 + 3][0]", "1"),
+            ("[1, 2 * 2, 3 + 3][1]", "4"),
+            ("[1, 2 * 2, 3 + 3][2]", "6"),
+            ("[1, 2, 3][0]", "1"),
+            ("[1, 2, 3][1]", "2"),
+            ("[1, 2, 3][2]", "3"),
+            ("let i = 0; [1][i];", "1"),
+            ("[1, 2, 3][1 + 1];", "3"),
+            ("let myArray = [1, 2, 3]; myArray[2];", "3"),
+            (
+                "let myArray = [1, 2, 3]; myArray[0] + myArray[1] + myArray[2];",
+                "6",
+            ),
+            (
+                "let myArray = [1, 2, 3]; let i = myArray[0]; myArray[i]",
+                "2",
+            ),
+            ("[1, 2, 3][3]", "null"),
+            ("[1, 2, 3][-1]", "null"),
+        ]);
+        expect_errors(vec![(
+            "[1, 2, 3][[1]]",
+            "index operator not supported: [1, 2, 3][[1]]",
+        )]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {

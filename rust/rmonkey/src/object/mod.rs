@@ -73,6 +73,7 @@ pub enum EvalError {
     NotCallable(Object),
     UnsupportedArguments(String, Vec<Object>),
     UnsupportedInfixOperator(InfixOperator, Object, Object),
+    UnsupportedIndexOperator(Object, Object),
     UnsupportedPrefixOperator(PrefixOperator, Object),
     TypeMismatch(InfixOperator, Object, Object),
     WrongArgumentCount { expected: usize, given: usize },
@@ -114,6 +115,9 @@ impl fmt::Display for EvalError {
                 "wrong number of arguments. got={}, want={}",
                 given, expected
             ),
+            EvalError::UnsupportedIndexOperator(l, i) => {
+                write!(f, "index operator not supported: {}[{}]", l, i)
+            }
         }
     }
 }
