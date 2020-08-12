@@ -75,7 +75,7 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
             apply_function(&function, arguments)
         }
         Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
-        Expression::ArrayLiteral(_) => unimplemented!(),
+        Expression::ArrayLiteral(elements) => eval_array_literal(elements, env),
         Expression::IndexExpression(_, _) => unimplemented!(),
     }
 }
@@ -112,6 +112,11 @@ fn extend_function_env(
     }
 
     result
+}
+
+fn eval_array_literal(elements: &[Expression], env: &mut Environment) -> EvalResult {
+    let values = eval_expressions(elements, env)?;
+    Ok(Object::Array(values))
 }
 
 fn eval_expressions(exps: &[Expression], env: &mut Environment) -> Result<Vec<Object>, EvalError> {
@@ -448,6 +453,11 @@ addTwo(2);
                 "wrong number of arguments. got=2, want=1",
             ),
         ]);
+    }
+
+    #[test]
+    fn array_literals() {
+        expect_values(vec![("[1, 2 * 2, 3 + 3]", "[1, 4, 6]")])
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
