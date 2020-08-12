@@ -322,6 +322,15 @@ impl<'a> Parser<'a> {
         Ok(Expression::Call(Box::new(function), arguments))
     }
 
+    fn parse_index_expression(&mut self, left: Expression) -> Result<Expression> {
+        self.next_token(); // consume the '['
+        let index = self.parse_expression(Precedence::Lowest)?;
+
+        self.expect_peek(Token::CloseBracket, ParserError::ExpectedCloseBracket)?;
+
+        Ok(Expression::IndexExpression(Box::new(left), Box::new(index)))
+    }
+
     fn parse_expression_list(
         &mut self,
         end_token: Token,
@@ -370,6 +379,7 @@ impl<'a> Parser<'a> {
             Token::Slash => (Precedence::Product, Some(InfixOperator::Slash)),
             Token::Asterisk => (Precedence::Product, Some(InfixOperator::Asterisk)),
             Token::OpenParen => (Precedence::Call, None),
+            Token::OpenBracket => (Precedence::Index, None),
             _ => (Precedence::Lowest, None),
         }
     }
@@ -385,6 +395,7 @@ impl<'a> Parser<'a> {
             | Token::Lt
             | Token::Gt => Some(|parser, left| parser.parse_infix_expression(left)),
             Token::OpenParen => Some(|parser, function| parser.parse_call_expression(function)),
+            Token::OpenBracket => Some(|parser, left| parser.parse_index_expression(left)),
             _ => None,
         }
     }
@@ -664,12 +675,25 @@ foobar;
             ("fn(x, y) { x + y; }", "fn(x, y) { (x + y); };"),
             ("add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5));"),
             (r#""hello world""#, r#""hello world";"#),
+            (
+                "a * [1, 2, 3, 4][ b * c] * d",
+                "((a * [1, 2, 3, 4][(b * c)]) * d);",
+            ),
+            (
+                "add( a * b[ 2], b[ 1], 2 * [1, 2][ 1])",
+                "add((a * b[2]), b[1], (2 * [1, 2][1]));",
+            ),
         ]);
     }
 
     #[test]
     fn array_literal() {
         test_parsing(vec![("[1, 2 * 2, 3 + 3 ]", "[1, (2 * 2), (3 + 3)];")])
+    }
+
+    #[test]
+    fn index_expressions() {
+        test_parsing(vec![("myArray[1 + 1]", "myArray[(1 + 1)];")])
     }
 
     fn test_parsing(tests: Vec<(&str, &str)>) {

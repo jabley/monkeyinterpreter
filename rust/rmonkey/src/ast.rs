@@ -8,6 +8,7 @@ pub enum Expression {
     FunctionLiteral(Vec<String>, BlockStatement),
     Identifier(String),
     If(Box<Expression>, BlockStatement, Option<BlockStatement>),
+    IndexExpression(Box<Expression>, Box<Expression>),
     IntegerLiteral(i64),
     Infix(InfixOperator, Box<Expression>, Box<Expression>),
     Prefix(PrefixOperator, Box<Expression>),
@@ -39,6 +40,7 @@ impl fmt::Display for Expression {
             }
             Expression::StringLiteral(s) => write!(f, "\"{}\"", s),
             Expression::ArrayLiteral(elements) => write!(f, "[{}]", comma_separated(elements)),
+            Expression::IndexExpression(left, index) => write!(f, "{}[{}]", left, index),
         }
     }
 }
