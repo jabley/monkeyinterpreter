@@ -38,6 +38,10 @@ pub enum Token {
     OpenBrace,
     /// "}"
     CloseBrace,
+    /// "["
+    OpenBracket,
+    /// "]"
+    CloseBracket,
     /// ","
     Comma,
     /// ";"
@@ -90,6 +94,8 @@ impl fmt::Display for Token {
             Token::CloseParen => write!(f, ")"),
             Token::OpenBrace => write!(f, "{{"),
             Token::CloseBrace => write!(f, "}}"),
+            Token::OpenBracket => write!(f, "["),
+            Token::CloseBracket => write!(f, "]"),
 
             Token::Function => write!(f, "fn"),
             Token::Let => write!(f, "let"),
