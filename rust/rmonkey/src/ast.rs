@@ -2,6 +2,7 @@ use std::fmt;
 
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Expression {
+    ArrayLiteral(Vec<Expression>),
     Boolean(bool),
     Call(Box<Expression>, Vec<Expression>),
     FunctionLiteral(Vec<String>, BlockStatement),
@@ -17,16 +18,9 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match self {
             Expression::Boolean(b) => write!(f, "{}", b),
-            Expression::Call(function, parameters) => write!(
-                f,
-                "{}({})",
-                function,
-                parameters
-                    .iter()
-                    .map(|a| a.to_string())
-                    .collect::<Vec<String>>()
-                    .join(", ")
-            ),
+            Expression::Call(function, parameters) => {
+                write!(f, "{}({})", function, comma_separated(parameters),)
+            }
             Expression::FunctionLiteral(parameters, body) => {
                 write!(f, "fn({}) {}", parameters.join(", "), body)
             }
@@ -44,8 +38,17 @@ impl fmt::Display for Expression {
                 write!(f, "({} {} {})", left, operator, right)
             }
             Expression::StringLiteral(s) => write!(f, "\"{}\"", s),
+            Expression::ArrayLiteral(elements) => write!(f, "[{}]", comma_separated(elements)),
         }
     }
+}
+
+fn comma_separated(values: &[Expression]) -> String {
+    values
+        .iter()
+        .map(|a| a.to_string())
+        .collect::<Vec<String>>()
+        .join(", ")
 }
 
 #[derive(Debug, Eq, PartialEq, Clone)]
