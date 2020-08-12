@@ -21,6 +21,7 @@ pub enum ParserError {
     ExpectedAssign(Token),
     ExpectedBooleanToken(Token),
     ExpectedCloseBrace(Token),
+    ExpectedCloseBracket(Token),
     ExpectedCloseParen(Token),
     ExpectedIdentifierToken(Token),
     ExpectedInfixToken(Token),
@@ -179,6 +180,7 @@ impl<'a> Parser<'a> {
             Token::OpenParen => self.parse_grouped_expression(),
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
+            Token::OpenBracket => self.parse_array_literal(),
             t @ Token::Let => Err(ParserError::UnexpectedKeyword(t.clone())),
             t @ Token::Return => Err(ParserError::UnexpectedKeyword(t.clone())),
             t @ Token::Else => Err(ParserError::UnexpectedKeyword(t.clone())),
@@ -221,6 +223,12 @@ impl<'a> Parser<'a> {
         let body = self.parse_block_statement()?;
 
         Ok(Expression::FunctionLiteral(parameters, body))
+    }
+
+    fn parse_array_literal(&mut self) -> Result<Expression> {
+        let elements =
+            self.parse_expression_list(Token::CloseBracket, ParserError::ExpectedCloseBracket)?;
+        Ok(Expression::ArrayLiteral(elements))
     }
 
     fn parse_boolean(&self) -> Result<Expression> {
@@ -309,15 +317,20 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_call_expression(&mut self, function: Expression) -> Result<Expression> {
-        let arguments = self.parse_call_arguments()?;
+        let arguments =
+            self.parse_expression_list(Token::CloseParen, ParserError::ExpectedCloseParen)?;
         Ok(Expression::Call(Box::new(function), arguments))
     }
 
-    fn parse_call_arguments(&mut self) -> Result<Vec<Expression>> {
+    fn parse_expression_list(
+        &mut self,
+        end_token: Token,
+        expected: fn(Token) -> ParserError,
+    ) -> Result<Vec<Expression>> {
         let mut exprs = vec![];
 
         // No parameters
-        if self.peek_token == Token::CloseParen {
+        if self.peek_token == end_token {
             self.next_token();
             return Ok(exprs);
         }
@@ -332,7 +345,7 @@ impl<'a> Parser<'a> {
             exprs.push(self.parse_expression(Precedence::Lowest)?);
         }
 
-        self.expect_peek(Token::CloseParen, ParserError::ExpectedCloseParen)?;
+        self.expect_peek(end_token, expected)?;
 
         Ok(exprs)
     }
@@ -652,6 +665,11 @@ foobar;
             ("add(1, 2 * 3, 4 + 5);", "add(1, (2 * 3), (4 + 5));"),
             (r#""hello world""#, r#""hello world";"#),
         ]);
+    }
+
+    #[test]
+    fn array_literal() {
+        test_parsing(vec![("[1, 2 * 2, 3 + 3 ]", "[1, (2 * 2), (3 + 3)];")])
     }
 
     fn test_parsing(tests: Vec<(&str, &str)>) {
