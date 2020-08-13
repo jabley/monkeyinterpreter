@@ -108,6 +108,7 @@ impl<'a> Lexer<'a> {
             Some(']') => Token::CloseBracket,
             Some(',') => Token::Comma,
             Some(';') => Token::SemiColon,
+            Some(':') => Token::Colon,
             Some('"') => Token::String(self.read_string()),
             Some(c) => {
                 if is_id_start(c) {
@@ -192,6 +193,7 @@ if (5 < 10) {
 "foobar"
 "foo bar"
 [1, 2]
+{"foo": "bar"}
 "#,
             vec![
                 Token::Let,
@@ -274,6 +276,11 @@ if (5 < 10) {
                 Token::Comma,
                 Token::Int(2),
                 Token::CloseBracket,
+                Token::OpenBrace,
+                Token::String("foo".to_owned()),
+                Token::Colon,
+                Token::String("bar".to_owned()),
+                Token::CloseBrace,
                 Token::Eof,
             ],
         );

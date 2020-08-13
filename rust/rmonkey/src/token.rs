@@ -46,6 +46,8 @@ pub enum Token {
     Comma,
     /// ";"
     SemiColon,
+    /// ":"
+    Colon,
 
     // Keywords
     /// "fn"
@@ -89,6 +91,7 @@ impl fmt::Display for Token {
 
             Token::Comma => write!(f, ","),
             Token::SemiColon => write!(f, ";"),
+            Token::Colon => write!(f, ":"),
 
             Token::OpenParen => write!(f, "("),
             Token::CloseParen => write!(f, ")"),
