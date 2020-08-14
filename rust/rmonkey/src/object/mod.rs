@@ -5,7 +5,7 @@ use std::fmt;
 pub mod builtins;
 pub mod environment;
 
-#[derive(Clone)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Object {
     Null,
     Integer(i64),
@@ -130,4 +130,25 @@ pub fn assert_argument_count(expected: usize, arguments: &[Object]) -> Result<()
         });
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+
+    use super::*;
+
+    #[test]
+    fn equality() {
+        assert_eq!(Object::Integer(1), Object::Integer(1));
+        assert_eq!(
+            Object::String("hello".to_string()),
+            Object::String("hello".to_string())
+        );
+        assert_ne!(Object::Integer(1), Object::Integer(2));
+        assert_ne!(
+            Object::String("hello".to_string()),
+            Object::String("world".to_string())
+        );
+        assert_ne!(Object::String("1".to_string()), Object::Integer(1));
+    }
 }
