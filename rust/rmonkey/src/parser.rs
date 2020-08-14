@@ -1,4 +1,6 @@
-use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
+use crate::ast::{
+    BlockStatement, Expression, HashLiteral, InfixOperator, PrefixOperator, Program, Statement,
+};
 use crate::lexer::Lexer;
 use crate::token::Token;
 
@@ -23,6 +25,8 @@ pub enum ParserError {
     ExpectedCloseBrace(Token),
     ExpectedCloseBracket(Token),
     ExpectedCloseParen(Token),
+    ExpectedColon(Token),
+    ExpectedComma(Token),
     ExpectedIdentifierToken(Token),
     ExpectedInfixToken(Token),
     ExpectedIntegerToken(Token),
@@ -181,6 +185,7 @@ impl<'a> Parser<'a> {
             Token::If => self.parse_if_expression(),
             Token::Function => self.parse_function_literal(),
             Token::OpenBracket => self.parse_array_literal(),
+            Token::OpenBrace => self.parse_hash_literal(),
             t @ Token::Let => Err(ParserError::UnexpectedKeyword(t.clone())),
             t @ Token::Return => Err(ParserError::UnexpectedKeyword(t.clone())),
             t @ Token::Else => Err(ParserError::UnexpectedKeyword(t.clone())),
@@ -229,6 +234,32 @@ impl<'a> Parser<'a> {
         let elements =
             self.parse_expression_list(Token::CloseBracket, ParserError::ExpectedCloseBracket)?;
         Ok(Expression::ArrayLiteral(elements))
+    }
+
+    fn parse_hash_literal(&mut self) -> Result<Expression> {
+        let mut hash = HashLiteral::new();
+
+        while self.peek_token != Token::CloseBrace {
+            self.next_token(); // slurp the '{' or ','
+
+            let key = self.parse_expression(Precedence::Lowest)?;
+
+            self.expect_peek(Token::Colon, ParserError::ExpectedColon)?;
+
+            self.next_token(); // slurp the ':'
+
+            let value = self.parse_expression(Precedence::Lowest)?;
+
+            hash.insert(key, value);
+
+            if self.peek_token != Token::CloseBrace {
+                self.expect_peek(Token::Comma, ParserError::ExpectedComma)?;
+            }
+        }
+
+        self.expect_peek(Token::CloseBrace, ParserError::ExpectedCloseBrace)?;
+
+        Ok(Expression::HashLiteral(hash))
     }
 
     fn parse_boolean(&self) -> Result<Expression> {
@@ -694,6 +725,23 @@ foobar;
     #[test]
     fn index_expressions() {
         test_parsing(vec![("myArray[1 + 1]", "myArray[(1 + 1)];")])
+    }
+
+    #[test]
+    fn hash_literal() {
+        test_parsing(vec![
+            ("{}", "{};"),
+            (
+                r#"{"one": 1, "two": 2, "three": 3}"#,
+                r#"{"one": 1, "two": 2, "three": 3};"#,
+            ),
+            ("{true: 1, false: 2}", "{true: 1, false: 2};"),
+            ("{1: 1, 2: 2, 3: 3}", r#"{1: 1, 2: 2, 3: 3};"#),
+            (
+                r#"{"one": 0 + 1, "two": 10 - 8, "three": 15 / 5}"#,
+                r#"{"one": (0 + 1), "two": (10 - 8), "three": (15 / 5)};"#,
+            ),
+        ]);
     }
 
     fn test_parsing(tests: Vec<(&str, &str)>) {
