@@ -77,6 +77,7 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
         Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
         Expression::ArrayLiteral(elements) => eval_array_literal(elements, env),
         Expression::IndexExpression(left, index) => eval_index_expression(left, index, env),
+        Expression::HashLiteral(_) => unimplemented!(),
     }
 }
 
