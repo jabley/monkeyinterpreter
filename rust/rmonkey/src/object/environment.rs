@@ -1,7 +1,7 @@
 use crate::object::Object;
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, Eq)]
 pub struct Environment {
     store: HashMap<String, Object>,
     outer: Option<Box<Environment>>,
@@ -27,6 +27,33 @@ impl Environment {
         match self.store.get(key) {
             Some(value) => Some(value.clone()),
             None => self.outer.as_ref().and_then(|outer| outer.get(key)),
+        }
+    }
+}
+
+impl Hash for Environment {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (k, v) in &self.store {
+            k.hash(state);
+            v.hash(state);
+        }
+
+        if let Some(env) = (&self.outer).as_ref() {
+            env.hash(state)
+        }
+    }
+}
+
+impl PartialEq for Environment {
+    fn eq(&self, other: &Self) -> bool {
+        if other.store.len() != self.store.len() {
+            return false;
+        }
+
+        match (self.outer.as_ref(), other.outer.as_ref()) {
+            (Some(us), Some(them)) => us.eq(&them),
+            (None, None) => true,
+            _ => false,
         }
     }
 }

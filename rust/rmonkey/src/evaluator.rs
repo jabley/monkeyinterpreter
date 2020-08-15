@@ -1,7 +1,11 @@
-use crate::ast::{BlockStatement, Expression, InfixOperator, PrefixOperator, Program, Statement};
+use crate::ast::{
+    BlockStatement, Expression, HashLiteral, InfixOperator, PrefixOperator, Program, Statement,
+};
 use crate::object::builtins;
 use crate::object::environment::Environment;
-use crate::object::{EvalError, EvalResult, Object};
+use crate::object::{EvalError, EvalResult, HashKey, Object};
+
+use indexmap::IndexMap;
 
 pub fn eval(program: &Program, env: &mut Environment) -> EvalResult {
     let mut result = Object::Null;
@@ -77,7 +81,7 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
         Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
         Expression::ArrayLiteral(elements) => eval_array_literal(elements, env),
         Expression::IndexExpression(left, index) => eval_index_expression(left, index, env),
-        Expression::HashLiteral(_) => unimplemented!(),
+        Expression::HashLiteral(hash) => eval_hash_literal(hash, env),
     }
 }
 
@@ -134,6 +138,19 @@ fn extend_function_env(
 fn eval_array_literal(elements: &[Expression], env: &mut Environment) -> EvalResult {
     let values = eval_expressions(elements, env)?;
     Ok(Object::Array(values))
+}
+
+fn eval_hash_literal(hash: &HashLiteral, env: &mut Environment) -> EvalResult {
+    let mut map = IndexMap::new();
+
+    for (k, v) in &hash.pairs {
+        let key = eval_expression(&k, env)?;
+        let value = eval_expression(&v, env)?;
+        let hash_key = HashKey::from_object(key)?;
+        map.insert(hash_key, value);
+    }
+
+    Ok(Object::Hash(map))
 }
 
 fn eval_expressions(exps: &[Expression], env: &mut Environment) -> Result<Vec<Object>, EvalError> {
@@ -523,6 +540,22 @@ addTwo(2);
         expect_errors(vec![(
             "[1, 2, 3][[1]]",
             "index operator not supported: [1, 2, 3][[1]]",
+        )]);
+    }
+
+    #[test]
+    fn hash_literals() {
+        expect_values(vec![(
+            r#"let two = "two";
+        {
+            "one": 10 - 9,
+            two: 1 + 1,
+            "thr" + "ee": 6 / 2,
+            4: 4,
+            true: 5,
+            false: 6
+        }"#,
+            r#"{"one": 1, "two": 2, "three": 3, 4: 4, true: 5, false: 6}"#,
         )]);
     }
 
