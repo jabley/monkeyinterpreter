@@ -7,6 +7,7 @@ pub fn lookup(name: &str) -> Option<Object> {
         "last" => Some(Object::BuiltIn(last)),
         "rest" => Some(Object::BuiltIn(rest)),
         "push" => Some(Object::BuiltIn(push)),
+        "puts" => Some(Object::BuiltIn(puts)),
         _ => None,
     }
 }
@@ -63,4 +64,12 @@ fn push(args: Vec<Object>) -> EvalResult {
         }
         _ => Err(EvalError::UnsupportedArguments("push".to_string(), args)),
     }
+}
+
+fn puts(args: Vec<Object>) -> EvalResult {
+    for arg in args {
+        println!("{}", arg);
+    }
+
+    Ok(Object::Null)
 }
