@@ -97,7 +97,16 @@ fn eval_index_expression(
         (Object::Array(elements), Object::Integer(i)) => {
             Ok(elements.get(i as usize).cloned().unwrap_or(Object::Null))
         }
+        (Object::Hash(map), key_ish) => eval_hash_index_expression(map, key_ish),
         (l, i) => Err(EvalError::UnsupportedIndexOperator(l, i)),
+    }
+}
+
+fn eval_hash_index_expression(map: IndexMap<HashKey, Object>, key_ish: Object) -> EvalResult {
+    let key = HashKey::from_object(key_ish)?;
+    match map.get(&key) {
+        Some(v) => Ok(v.clone()),
+        None => Ok(Object::Null),
     }
 }
 
@@ -367,6 +376,10 @@ mod tests {
             ("foobar", "Identifier not found: foobar"),
             ("let x = 5; x();", "Not a function: 5"),
             (r#""Hello" - "World""#, "Unknown operator: STRING - STRING"),
+            (
+                r#"{"name": "Monkey"}[fn(x) { x }];"#,
+                "Unusable as hash key: FUNCTION",
+            ),
         ]);
     }
 
@@ -557,6 +570,19 @@ addTwo(2);
         }"#,
             r#"{"one": 1, "two": 2, "three": 3, 4: 4, true: 5, false: 6}"#,
         )]);
+    }
+
+    #[test]
+    fn hash_index_expression() {
+        expect_values(vec![
+            (r#"{"foo": 5}["foo"]"#, "5"),
+            (r#"{"foo": 5}["bar"]"#, "null"),
+            (r#"let key = "foo"; {"foo": 5}[key]"#, "5"),
+            (r#"{}["foo"]"#, "null"),
+            (r#"{5: 5}[5]"#, "5"),
+            (r#"{true: 5}[true]"#, "5"),
+            (r#"{false: 5}[false]"#, "5"),
+        ]);
     }
 
     fn expect_values(tests: Vec<(&str, &str)>) {
