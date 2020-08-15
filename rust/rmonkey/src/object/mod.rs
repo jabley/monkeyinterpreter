@@ -65,6 +65,34 @@ impl Object {
     }
 }
 
+#[derive(PartialEq, Eq, Clone, Hash, Debug)]
+pub enum HashKey {
+    Boolean(bool),
+    Integer(i64),
+    String(String),
+}
+
+impl fmt::Display for HashKey {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            HashKey::Boolean(b) => write!(f, "{}", b),
+            HashKey::Integer(i) => write!(f, "{}", i),
+            HashKey::String(s) => write!(f, "\"{}\"", s),
+        }
+    }
+}
+
+impl HashKey {
+    pub fn from_object(obj: Object) -> Result<HashKey, EvalError> {
+        match obj {
+            Object::Boolean(b) => Ok(HashKey::Boolean(b)),
+            Object::Integer(i) => Ok(HashKey::Integer(i)),
+            Object::String(s) => Ok(HashKey::String(s)),
+            _ => Err(EvalError::UnusableHashKey(obj)),
+        }
+    }
+}
+
 pub type EvalResult = std::result::Result<Object, EvalError>;
 pub type BuiltIn = fn(Vec<Object>) -> EvalResult;
 
@@ -75,6 +103,7 @@ pub enum EvalError {
     UnsupportedInfixOperator(InfixOperator, Object, Object),
     UnsupportedIndexOperator(Object, Object),
     UnsupportedPrefixOperator(PrefixOperator, Object),
+    UnusableHashKey(Object),
     TypeMismatch(InfixOperator, Object, Object),
     WrongArgumentCount { expected: usize, given: usize },
 }
@@ -117,6 +146,9 @@ impl fmt::Display for EvalError {
             ),
             EvalError::UnsupportedIndexOperator(l, i) => {
                 write!(f, "index operator not supported: {}[{}]", l, i)
+            }
+            EvalError::UnusableHashKey(obj) => {
+                write!(f, "Unusable as hash key: {}", obj.type_name())
             }
         }
     }

@@ -67,7 +67,7 @@ impl HashLiteral {
     }
 
     pub fn insert(&mut self, k: Expression, v: Expression) -> Option<Expression> {
-        self.pairs.insert(k.clone(), v.clone())
+        self.pairs.insert(k, v)
     }
 }
 
