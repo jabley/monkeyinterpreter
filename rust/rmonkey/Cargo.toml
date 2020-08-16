@@ -8,3 +8,10 @@ edition = "2018"
 
 [dependencies]
 indexmap = "1.5.1"
+
+[dev-dependencies]
+criterion = "0.3"
+
+[[bench]]
+name = "my_benchmark"
+harness = false
