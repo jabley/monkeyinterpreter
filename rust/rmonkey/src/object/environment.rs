@@ -1,10 +1,10 @@
 use crate::object::Object;
-use std::{collections::HashMap, hash::Hash};
+use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
 #[derive(Default, Debug, Clone, Eq)]
 pub struct Environment {
     store: HashMap<String, Object>,
-    outer: Option<Box<Environment>>,
+    outer: Option<Rc<RefCell<Environment>>>,
 }
 
 impl Environment {
@@ -12,10 +12,10 @@ impl Environment {
         Default::default()
     }
 
-    pub fn extend(outer: &Self) -> Self {
+    pub fn extend(outer: Rc<RefCell<Environment>>) -> Self {
         Environment {
             store: HashMap::new(),
-            outer: Some(Box::new(outer.clone())),
+            outer: Some(Rc::clone(&outer)),
         }
     }
 
@@ -26,7 +26,10 @@ impl Environment {
     pub fn get(&self, key: &str) -> Option<Object> {
         match self.store.get(key) {
             Some(value) => Some(value.clone()),
-            None => self.outer.as_ref().and_then(|outer| outer.get(key)),
+            None => self
+                .outer
+                .as_ref()
+                .and_then(|outer| outer.borrow().get(key)),
         }
     }
 }
@@ -39,7 +42,7 @@ impl Hash for Environment {
         }
 
         if let Some(env) = (&self.outer).as_ref() {
-            env.hash(state)
+            env.borrow().hash(state)
         }
     }
 }
@@ -54,6 +57,26 @@ impl PartialEq for Environment {
             (Some(us), Some(them)) => us.eq(&them),
             (None, None) => true,
             _ => false,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Environment;
+    use crate::object::Object;
+    use std::{cell::RefCell, rc::Rc};
+
+    #[test]
+    fn recursive_lookup() {
+        let outer = Rc::new(RefCell::new(Environment::new()));
+        let enclosed = Environment::extend(Rc::clone(&outer));
+
+        outer.borrow_mut().set("fib", Object::Integer(1));
+
+        match enclosed.get("fib") {
+            Some(Object::Integer(1)) => {}
+            _ => assert!(false),
         }
     }
 }

@@ -7,7 +7,7 @@ pub mod token;
 
 use std::io;
 use std::io::BufRead;
-use std::io::Write;
+use std::{cell::RefCell, io::Write, rc::Rc};
 
 use crate::lexer::Lexer;
 use crate::object::environment::Environment;
@@ -36,9 +36,9 @@ fn main() {
             continue;
         }
 
-        let mut env = Environment::new();
+        let env = Rc::new(RefCell::new(Environment::new()));
 
-        match evaluator::eval(&program, &mut env) {
+        match evaluator::eval(&program, env) {
             Ok(evaluated) => println!("{}", evaluated),
             Err(err) => println!("ERROR: {}", err),
         }

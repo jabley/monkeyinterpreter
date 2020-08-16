@@ -1,7 +1,7 @@
 use crate::ast::{BlockStatement, InfixOperator, PrefixOperator};
 pub use crate::object::environment::Environment;
 use indexmap::IndexMap;
-use std::{fmt, hash::Hash};
+use std::{cell::RefCell, fmt, hash::Hash, rc::Rc};
 
 pub mod builtins;
 pub mod environment;
@@ -12,7 +12,7 @@ pub enum Object {
     Integer(i64),
     Boolean(bool),
     Return(Box<Object>),
-    Function(Vec<String>, BlockStatement, Environment),
+    Function(Vec<String>, BlockStatement, Rc<RefCell<Environment>>),
     String(String),
     BuiltIn(BuiltIn),
     Array(Vec<Object>),
@@ -34,7 +34,7 @@ impl Hash for Object {
                     p.hash(state);
                 }
                 body.hash(state);
-                env.hash(state);
+                env.borrow().hash(state);
             }
             Object::String(s) => s.hash(state),
             Object::BuiltIn(func) => func.hash(state),
