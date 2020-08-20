@@ -6,13 +6,12 @@ use crate::object::environment::Environment;
 use crate::object::{EvalError, EvalResult, HashKey, Object};
 
 use indexmap::IndexMap;
-use std::{cell::RefCell, rc::Rc};
 
-pub fn eval(program: &Program, env: Rc<RefCell<Environment>>) -> EvalResult {
+pub fn eval(program: &Program, env: &mut Environment) -> EvalResult {
     let mut result = Object::Null;
 
     for statement in &program.statements {
-        result = eval_statement(statement, Rc::clone(&env))?;
+        result = eval_statement(statement, env)?;
 
         if let Object::Return(value) = result {
             return Ok(*value);
@@ -22,11 +21,11 @@ pub fn eval(program: &Program, env: Rc<RefCell<Environment>>) -> EvalResult {
     Ok(result)
 }
 
-fn eval_block_statement(block: &BlockStatement, env: Rc<RefCell<Environment>>) -> EvalResult {
+fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> EvalResult {
     let mut res = Object::Null;
 
     for statement in &block.statements {
-        res = eval_statement(statement, Rc::clone(&env))?;
+        res = eval_statement(statement, env)?;
 
         if let Object::Return(_) = res {
             // Don't unwrap it here - want to propagate it back up the call stack
@@ -37,22 +36,19 @@ fn eval_block_statement(block: &BlockStatement, env: Rc<RefCell<Environment>>) -
     Ok(res)
 }
 
-fn eval_statement(statement: &Statement, env: Rc<RefCell<Environment>>) -> EvalResult {
+fn eval_statement(statement: &Statement, env: &mut Environment) -> EvalResult {
     match statement {
         Statement::Expression(exp) => eval_expression(exp, env),
         Statement::Return(exp) => eval_return_expression(exp, env),
         Statement::Let(name, expression) => {
-            let result = eval_expression(expression, Rc::clone(&env))?;
-            env.borrow_mut().set(name, result.clone());
+            let result = eval_expression(expression, env)?;
+            env.set(name, result.clone());
             Ok(result)
         }
     }
 }
 
-fn eval_return_expression(
-    possibility: &Option<Expression>,
-    env: Rc<RefCell<Environment>>,
-) -> EvalResult {
+fn eval_return_expression(possibility: &Option<Expression>, env: &mut Environment) -> EvalResult {
     match possibility {
         Some(expression) => {
             let result = eval_expression(expression, env)?;
@@ -62,7 +58,7 @@ fn eval_return_expression(
     }
 }
 
-fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> EvalResult {
+fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult {
     match expression {
         Expression::IntegerLiteral(v) => Ok(Object::Integer(*v)),
         Expression::Boolean(b) => Ok(Object::Boolean(*b)),
@@ -78,7 +74,7 @@ fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> Ev
         Expression::Identifier(name) => eval_identifier(name, env),
         Expression::FunctionLiteral(parameters, body) => eval_function(parameters, body, env),
         Expression::Call(function_exp, arg_expressions) => {
-            let function = eval_expression(function_exp, Rc::clone(&env))?;
+            let function = eval_expression(function_exp, env)?;
             let arguments = eval_expressions(arg_expressions, env)?;
             apply_function(function, arguments)
         }
@@ -92,9 +88,9 @@ fn eval_expression(expression: &Expression, env: Rc<RefCell<Environment>>) -> Ev
 fn eval_index_expression(
     left: &Expression,
     index: &Expression,
-    env: Rc<RefCell<Environment>>,
+    env: &mut Environment,
 ) -> EvalResult {
-    let left_value = eval_expression(left, Rc::clone(&env))?;
+    let left_value = eval_expression(left, env)?;
     let index_value = eval_expression(index, env)?;
 
     match (left_value, index_value) {
@@ -117,8 +113,8 @@ fn eval_hash_index_expression(map: IndexMap<HashKey, Object>, key_ish: Object) -
 fn apply_function(function: Object, arguments: Vec<Object>) -> EvalResult {
     match function {
         Object::Function(params, body, env) => {
-            let new_env = extend_function_env(params, arguments, env);
-            let evaluated = eval_block_statement(&body, new_env)?;
+            let mut new_env = extend_function_env(params, arguments, &env);
+            let evaluated = eval_block_statement(&body, &mut new_env)?;
             unwrap_return_value(evaluated)
         }
         Object::BuiltIn(func) => func(arguments),
@@ -136,29 +132,29 @@ fn unwrap_return_value(obj: Object) -> EvalResult {
 fn extend_function_env(
     params: Vec<String>,
     arguments: Vec<Object>,
-    env: Rc<RefCell<Environment>>,
-) -> Rc<RefCell<Environment>> {
-    let result = Rc::new(RefCell::new(Environment::extend(Rc::clone(&env))));
+    env: &Environment,
+) -> Environment {
+    let mut result = env.extend();
 
     for (i, p) in params.iter().enumerate() {
         let arg = arguments.get(i).cloned().unwrap_or(Object::Null);
-        result.borrow_mut().set(p, arg);
+        result.set(p, arg);
     }
 
     result
 }
 
-fn eval_array_literal(elements: &[Expression], env: Rc<RefCell<Environment>>) -> EvalResult {
+fn eval_array_literal(elements: &[Expression], env: &mut Environment) -> EvalResult {
     let values = eval_expressions(elements, env)?;
     Ok(Object::Array(values))
 }
 
-fn eval_hash_literal(hash: &HashLiteral, env: Rc<RefCell<Environment>>) -> EvalResult {
+fn eval_hash_literal(hash: &HashLiteral, env: &mut Environment) -> EvalResult {
     let mut map = IndexMap::new();
 
     for (k, v) in &hash.pairs {
-        let key = eval_expression(&k, Rc::clone(&env))?;
-        let value = eval_expression(&v, Rc::clone(&env))?;
+        let key = eval_expression(&k, env)?;
+        let value = eval_expression(&v, env)?;
         let hash_key = HashKey::from_object(key)?;
         map.insert(hash_key, value);
     }
@@ -166,14 +162,11 @@ fn eval_hash_literal(hash: &HashLiteral, env: Rc<RefCell<Environment>>) -> EvalR
     Ok(Object::Hash(map))
 }
 
-fn eval_expressions(
-    exps: &[Expression],
-    env: Rc<RefCell<Environment>>,
-) -> Result<Vec<Object>, EvalError> {
+fn eval_expressions(exps: &[Expression], env: &mut Environment) -> Result<Vec<Object>, EvalError> {
     let mut results = vec![];
 
     for exp in exps {
-        results.push(eval_expression(exp, Rc::clone(&env))?);
+        results.push(eval_expression(exp, env)?);
     }
 
     Ok(results)
@@ -182,7 +175,7 @@ fn eval_expressions(
 fn eval_function(
     parameters: &[String],
     body: &BlockStatement,
-    env: Rc<RefCell<Environment>>,
+    env: &mut Environment,
 ) -> EvalResult {
     Ok(Object::Function(
         parameters.to_owned(),
@@ -191,8 +184,8 @@ fn eval_function(
     ))
 }
 
-fn eval_identifier(name: &str, env: Rc<RefCell<Environment>>) -> EvalResult {
-    if let Some(r) = env.borrow().get(name) {
+fn eval_identifier(name: &str, env: &Environment) -> EvalResult {
+    if let Some(r) = env.get(name) {
         return Ok(r);
     }
 
@@ -206,7 +199,7 @@ fn eval_identifier(name: &str, env: Rc<RefCell<Environment>>) -> EvalResult {
 fn eval_prefix_expression(
     operator: &PrefixOperator,
     expression: &Expression,
-    env: Rc<RefCell<Environment>>,
+    env: &mut Environment,
 ) -> EvalResult {
     let obj = eval_expression(expression, env)?;
 
@@ -223,9 +216,9 @@ fn eval_infix_expression(
     operator: &InfixOperator,
     left_exp: &Expression,
     right_exp: &Expression,
-    env: Rc<RefCell<Environment>>,
+    env: &mut Environment,
 ) -> EvalResult {
-    let left_obj = eval_expression(left_exp, Rc::clone(&env))?;
+    let left_obj = eval_expression(left_exp, env)?;
     let right_obj = eval_expression(right_exp, env)?;
 
     match (left_obj, right_obj) {
@@ -286,9 +279,9 @@ fn eval_if_expression(
     condition: &Expression,
     consequence: &BlockStatement,
     alternative: &Option<BlockStatement>,
-    env: Rc<RefCell<Environment>>,
+    env: &mut Environment,
 ) -> EvalResult {
-    let test = eval_expression(condition, Rc::clone(&env))?;
+    let test = eval_expression(condition, env)?;
 
     if test.is_truthy() {
         return eval_block_statement(&consequence, env);
@@ -308,7 +301,6 @@ mod tests {
     use crate::lexer::Lexer;
     use crate::object::environment::Environment;
     use crate::parser::Parser;
-    use std::{cell::RefCell, rc::Rc};
 
     #[test]
     fn eval_integer_expression() {
@@ -652,7 +644,7 @@ addTwo(2);
         let mut parser = Parser::new(lexer);
 
         let program = parser.parse_program();
-        let env = Rc::new(RefCell::new(Environment::new()));
-        evaluator::eval(&program, env)
+        let mut env = Environment::new();
+        evaluator::eval(&program, &mut env)
     }
 }

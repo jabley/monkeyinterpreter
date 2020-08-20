@@ -6,7 +6,6 @@ use rmonkey::{
     object::{Environment, Object},
     parser::Parser,
 };
-use std::{cell::RefCell, rc::Rc};
 
 fn parse() -> Program {
     let lexer = Lexer::new(
@@ -34,9 +33,9 @@ fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("fib 18", |b| {
         b.iter(|| {
-            let env = Rc::new(RefCell::new(Environment::new()));
+            let mut env = Environment::new();
 
-            match evaluator::eval(&program, env) {
+            match evaluator::eval(&program, &mut env) {
                 Ok(Object::Integer(2584)) => {}
                 Ok(obj) => println!("Unexpected result: {}", obj.to_string()),
                 Err(e) => println!("Unexpected error: {}", e.to_string()),

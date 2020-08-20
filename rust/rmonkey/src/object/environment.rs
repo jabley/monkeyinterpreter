@@ -2,18 +2,18 @@ use crate::object::Object;
 use std::{cell::RefCell, collections::HashMap, hash::Hash, rc::Rc};
 
 #[derive(Default, Debug, Clone, Eq)]
-pub struct Environment {
+pub struct Environment3 {
     store: HashMap<String, Object>,
-    outer: Option<Rc<RefCell<Environment>>>,
+    outer: Option<Rc<RefCell<Environment3>>>,
 }
 
-impl Environment {
+impl Environment3 {
     pub fn new() -> Self {
         Default::default()
     }
 
-    pub fn extend(outer: Rc<RefCell<Environment>>) -> Self {
-        Environment {
+    pub fn extend(outer: Rc<RefCell<Environment3>>) -> Self {
+        Environment3 {
             store: HashMap::new(),
             outer: Some(Rc::clone(&outer)),
         }
@@ -34,7 +34,7 @@ impl Environment {
     }
 }
 
-impl Hash for Environment {
+impl Hash for Environment3 {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         for (k, v) in &self.store {
             k.hash(state);
@@ -47,9 +47,9 @@ impl Hash for Environment {
     }
 }
 
-impl PartialEq for Environment {
+impl PartialEq for Environment3 {
     fn eq(&self, other: &Self) -> bool {
-        if other.store.len() != self.store.len() {
+        if !self.store.eq(&other.store) {
             return false;
         }
 
@@ -61,42 +61,60 @@ impl PartialEq for Environment {
     }
 }
 
-pub struct Environment2 {
-    head: Link,
+impl Drop for Environment3 {
+    fn drop(&mut self) {
+        let mut outer = self.outer.take();
+
+        while let Some(node) = outer {
+            if let Ok(node) = Rc::try_unwrap(node) {
+                outer = node.borrow_mut().outer.take();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone, Eq)]
+pub struct Environment {
+    context: Link,
 }
 
 type Link = Option<Rc<RefCell<Context>>>;
 
+#[derive(Debug, Eq)]
 struct Context {
     store: HashMap<String, Object>,
     next: Link,
 }
 
-impl Environment2 {
+impl Environment {
     pub fn new() -> Self {
-        Environment2 {
-            head: Some(Context::new()),
+        Environment {
+            context: Some(Context::new()),
         }
     }
 
-    pub fn extend(&mut self) -> Self {
-        let head = Context::new();
-        head.borrow_mut().next = Some(Rc::clone(self.head.as_ref().unwrap()));
-        Environment2 { head: Some(head) }
+    pub fn extend(&self) -> Self {
+        let context = Context::new();
+        context.borrow_mut().next = Some(Rc::clone(self.context.as_ref().unwrap()));
+        Environment {
+            context: Some(context),
+        }
     }
 
     pub fn set(&mut self, key: &str, value: Object) {
-        self.head
+        self.context
             .as_ref()
             .map(|node| node.borrow_mut().store.insert(key.to_string(), value));
     }
 
     pub fn get(&self, key: &str) -> Option<Object> {
-        let foo = self.head.as_ref();
+        let context_ref = self.context.as_ref();
 
-        match foo.unwrap().borrow().store.get(key) {
+        match context_ref.unwrap().borrow().store.get(key) {
             Some(value) => Some(value.clone()),
-            None => foo.and_then(|node| {
+            None => context_ref.and_then(|node| {
                 node.borrow()
                     .next
                     .as_ref()
@@ -118,12 +136,13 @@ impl Context {
     }
 }
 
-impl Drop for Environment2 {
+impl Drop for Environment {
     fn drop(&mut self) {
-        let mut head = self.head.take();
-        while let Some(node) = head {
+        let mut context = self.context.take();
+
+        while let Some(node) = context {
             if let Ok(node) = Rc::try_unwrap(node) {
-                head = node.borrow_mut().next.take();
+                context = node.borrow_mut().next.take();
             } else {
                 break;
             }
@@ -131,16 +150,65 @@ impl Drop for Environment2 {
     }
 }
 
+impl PartialEq for Context {
+    fn eq(&self, other: &Self) -> bool {
+        if !self.store.eq(&other.store) {
+            return false;
+        }
+
+        match (self.next.as_ref(), other.next.as_ref()) {
+            (Some(us), Some(them)) => us.eq(&them),
+            (None, None) => true,
+            _ => false,
+        }
+    }
+}
+
+impl PartialEq for Environment {
+    fn eq(&self, other: &Self) -> bool {
+        self.context.eq(&other.context)
+    }
+}
+
+impl Hash for Environment {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        if let Some(h) = &self.context {
+            h.borrow().hash(state);
+        }
+    }
+}
+
+impl Default for Environment {
+    fn default() -> Self {
+        Environment {
+            context: Some(Context::new()),
+        }
+    }
+}
+
+impl Hash for Context {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        for (k, v) in &self.store {
+            k.hash(state);
+            v.hash(state);
+        }
+
+        if let Some(c) = &self.next {
+            c.borrow().hash(state);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{Environment, Environment2};
+    use super::{Environment, Environment3};
     use crate::object::Object;
     use std::{cell::RefCell, rc::Rc};
 
     #[test]
     fn recursive_lookup() {
-        let outer = Rc::new(RefCell::new(Environment::new()));
-        let enclosed = Environment::extend(Rc::clone(&outer));
+        let outer = Rc::new(RefCell::new(Environment3::new()));
+        let enclosed = Environment3::extend(Rc::clone(&outer));
 
         match enclosed.get("fib") {
             None => {}
@@ -157,7 +225,7 @@ mod tests {
 
     #[test]
     fn hide_internals_usage() {
-        let mut outer = Environment2::new();
+        let mut outer = Environment::new();
         let enclosed = outer.extend();
 
         match enclosed.get("fib") {
