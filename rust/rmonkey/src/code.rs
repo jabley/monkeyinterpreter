@@ -1,7 +1,47 @@
-use byteorder::{BigEndian, WriteBytesExt};
+use byteorder::{BigEndian, ByteOrder, WriteBytesExt};
 
 /// Instructions is a stream of bytecode instructions
 pub type Instructions = Vec<u8>;
+
+/// InstructionsFns is a collection of functions for working with Instructions.
+/// We can't implement fmt::Display for a type, so we have this instead.
+trait InstructionsFns {
+    fn to_string(&self) -> String;
+}
+
+impl InstructionsFns for Instructions {
+    fn to_string(&self) -> String {
+        let mut result = String::new();
+
+        let mut i = 0;
+
+        while i < self.len() {
+            let op_code = self[i];
+            if let Some(op) = lookup_op(op_code) {
+                if i > 0 {
+                    result.push('\n');
+                }
+
+                result.push_str(&format!("{:04} ", i));
+
+                i += 1; // slurp the op_code
+
+                let (operands, offset) = read_operands(&op, &self[i..]);
+                result.push_str(op.name());
+
+                for operand in operands {
+                    result.push_str(&format!(" {}", operand));
+                }
+
+                i += offset; // slurp the operands
+            } else {
+                return format!("Unknown op code {} at {}", op_code, i);
+            }
+        }
+
+        result
+    }
+}
 
 /// Op is the first byte in an Instruction, followd by an optional number of variable-width operands.
 #[repr(u8)]
@@ -26,6 +66,31 @@ impl Op {
     }
 }
 
+fn lookup_op(op_code: u8) -> Option<Op> {
+    match op_code {
+        0 => Some(Op::Constant),
+        _ => None,
+    }
+}
+
+fn read_operands(op: &Op, instructions: &[u8]) -> (Vec<usize>, usize) {
+    let widths = op.operand_widths();
+    let mut operands = Vec::with_capacity(widths.len());
+    let mut offset = 0;
+
+    for width in widths {
+        match width {
+            2 => {
+                operands.push(BigEndian::read_u16(&instructions[offset..offset + 2]) as usize);
+                offset += 2;
+            }
+            _ => panic!("width {} not supported for operand", width),
+        }
+    }
+
+    (operands, offset)
+}
+
 pub fn make_instruction(op: Op, operands: &[usize]) -> Vec<u8> {
     let mut instruction = vec![];
     let widths = op.operand_widths();
@@ -45,6 +110,23 @@ pub fn make_instruction(op: Op, operands: &[usize]) -> Vec<u8> {
 mod tests {
 
     use super::*;
+
+    #[test]
+    fn instructions_string() {
+        let instructions: Instructions = vec![
+            make_instruction(Op::Constant, &vec![1]),
+            make_instruction(Op::Constant, &vec![2]),
+            make_instruction(Op::Constant, &vec![65535]),
+        ]
+        .concat();
+
+        assert_eq!(
+            "0000 OpConstant 1\n\
+                    0003 OpConstant 2\n\
+                    0006 OpConstant 65535",
+            instructions.to_string()
+        );
+    }
 
     #[test]
     fn make() {
