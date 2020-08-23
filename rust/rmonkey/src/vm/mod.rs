@@ -1,3 +1,4 @@
+use crate::ast::InfixOperator;
 use crate::code::{Instructions, Op};
 use crate::compiler::Bytecode;
 use crate::object::Object;
@@ -8,6 +9,7 @@ use std::{error, fmt};
 pub enum VMError {
     StackOverflow(),
     StackEmpty(),
+    TypeMismatch(InfixOperator, Object, Object),
 }
 
 impl fmt::Display for VMError {
@@ -15,6 +17,13 @@ impl fmt::Display for VMError {
         match self {
             VMError::StackOverflow() => write!(f, "StackOverflow"),
             VMError::StackEmpty() => write!(f, "Stack empty"),
+            VMError::TypeMismatch(operator, left, right) => write!(
+                f,
+                "Type mismatch: {} {} {}",
+                left.type_name(),
+                operator,
+                right.type_name()
+            ),
         }
     }
 }
@@ -24,6 +33,7 @@ impl error::Error for VMError {
         match *self {
             VMError::StackOverflow() => None,
             VMError::StackEmpty() => None,
+            VMError::TypeMismatch(_, _, _) => None,
         }
     }
 }
@@ -66,7 +76,18 @@ impl VM {
 
                     self.push(self.constants[const_index].clone())?;
                 }
-                _ => {}
+                Some(Op::Add) => {
+                    let right = self.pop()?;
+                    let left = self.pop()?;
+
+                    match (&left, &right) {
+                        (Object::Integer(l), Object::Integer(r)) => {
+                            self.push(Object::Integer(l + r))?
+                        }
+                        _ => return Err(VMError::TypeMismatch(InfixOperator::Plus, left, right)),
+                    }
+                }
+                _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
         }
@@ -92,6 +113,15 @@ impl VM {
 
         Ok(())
     }
+
+    fn pop(&mut self) -> Result<Object, VMError> {
+        if self.sp == 0 {
+            Err(VMError::StackEmpty())
+        } else {
+            self.sp -= 1;
+            Ok(self.stack[self.sp].clone())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -103,7 +133,11 @@ mod tests {
 
     #[test]
     fn integer_arithmetic() {
-        let tests = vec![("1", Object::Integer(1)), ("2", Object::Integer(2))];
+        let tests = vec![
+            ("1", Object::Integer(1)),
+            ("2", Object::Integer(2)),
+            ("1 + 2", Object::Integer(3)),
+        ];
 
         for (input, expected) in tests {
             match run_vm_test(input, expected) {

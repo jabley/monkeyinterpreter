@@ -1,7 +1,7 @@
 use crate::ast::Expression;
 use crate::ast::Statement;
 use crate::{
-    ast::Program,
+    ast::{InfixOperator, Program},
     code::{make_instruction, Instructions, Op},
     object::Object,
 };
@@ -54,15 +54,21 @@ impl Compiler {
     fn compile_statement(&mut self, stmt: &Statement) -> Result<(), CompilerError> {
         match stmt {
             Statement::Expression(exp) => self.compile_expression(&exp),
-            _ => unimplemented!(),
+            _ => todo!(),
         }
     }
 
     fn compile_expression(&mut self, exp: &Expression) -> Result<(), CompilerError> {
         match exp {
-            Expression::Infix(_, left, right) => {
+            Expression::Infix(operator, left, right) => {
                 self.compile_expression(left)?;
                 self.compile_expression(right)?;
+
+                match operator {
+                    InfixOperator::Plus => self.emit(Op::Add, &[]),
+                    _ => todo!("Unknown operator: {}", operator),
+                }
+
                 Ok(())
             }
             Expression::IntegerLiteral(v) => {
@@ -71,7 +77,7 @@ impl Compiler {
                 self.emit(Op::Constant, &operands);
                 Ok(())
             }
-            _ => unimplemented!(),
+            _ => todo!("Not handling expression {} yet", exp),
         }
     }
 
@@ -116,6 +122,7 @@ mod tests {
             vec![
                 make_instruction(Op::Constant, &[0]),
                 make_instruction(Op::Constant, &[1]),
+                make_instruction(Op::Add, &[]),
             ],
         )];
 
@@ -152,7 +159,7 @@ mod tests {
                         i, b, actual
                     );
                 }
-                _ => unimplemented!(
+                _ => todo!(
                     "Not implemented assertion for type: {}",
                     actual[i].type_name()
                 ),
