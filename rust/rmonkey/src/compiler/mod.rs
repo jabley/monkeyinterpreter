@@ -5,8 +5,24 @@ use crate::{
     code::{make_instruction, Instructions, Op},
     object::Object,
 };
+use std::{error::Error, fmt};
 
+#[derive(Debug)]
 pub enum CompilerError {}
+
+impl fmt::Display for CompilerError {
+    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
+impl Error for CompilerError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match *self {
+            _ => None,
+        }
+    }
+}
 
 /// Compiler is responsible for taking an AST and turning it into bytecode.
 #[derive(Default)]

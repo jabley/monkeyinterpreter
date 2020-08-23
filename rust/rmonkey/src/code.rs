@@ -17,7 +17,7 @@ impl InstructionsFns for Instructions {
 
         while i < self.len() {
             let op_code = self[i];
-            if let Some(op) = lookup_op(op_code) {
+            if let Some(op) = Op::lookup_op(op_code) {
                 if i > 0 {
                     result.push('\n');
                 }
@@ -64,12 +64,12 @@ impl Op {
             Op::Constant => vec![2],
         }
     }
-}
 
-fn lookup_op(op_code: u8) -> Option<Op> {
-    match op_code {
-        0 => Some(Op::Constant),
-        _ => None,
+    pub fn lookup_op(op_code: u8) -> Option<Op> {
+        match op_code {
+            0 => Some(Op::Constant),
+            _ => None,
+        }
     }
 }
 
