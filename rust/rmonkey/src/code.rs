@@ -48,6 +48,7 @@ impl InstructionsFns for Instructions {
 #[derive(Debug)]
 pub enum Op {
     Constant,
+    Add,
 }
 
 impl Op {
@@ -55,6 +56,7 @@ impl Op {
     pub fn name(&self) -> &str {
         match self {
             Op::Constant => "OpConstant",
+            Op::Add => "OpAdd",
         }
     }
 
@@ -62,12 +64,14 @@ impl Op {
     pub fn operand_widths(&self) -> Vec<u8> {
         match self {
             Op::Constant => vec![2],
+            Op::Add => vec![],
         }
     }
 
     pub fn lookup_op(op_code: u8) -> Option<Op> {
         match op_code {
             0 => Some(Op::Constant),
+            1 => Some(Op::Add),
             _ => None,
         }
     }
@@ -114,27 +118,30 @@ mod tests {
     #[test]
     fn instructions_string() {
         let instructions: Instructions = vec![
-            make_instruction(Op::Constant, &vec![1]),
+            make_instruction(Op::Add, &vec![]),
             make_instruction(Op::Constant, &vec![2]),
             make_instruction(Op::Constant, &vec![65535]),
         ]
         .concat();
 
         assert_eq!(
-            "0000 OpConstant 1\n\
-                    0003 OpConstant 2\n\
-                    0006 OpConstant 65535",
+            "0000 OpAdd\n\
+                    0001 OpConstant 2\n\
+                    0004 OpConstant 65535",
             instructions.to_string()
         );
     }
 
     #[test]
     fn make() {
-        let tests = vec![(
-            Op::Constant,
-            vec![65534],
-            vec![Op::Constant as u8, 255u8, 254u8],
-        )];
+        let tests = vec![
+            (
+                Op::Constant,
+                vec![65534],
+                vec![Op::Constant as u8, 255u8, 254u8],
+            ),
+            (Op::Add, vec![], vec![Op::Add as u8]),
+        ];
 
         for (op, operands, expected) in tests {
             let instruction = make_instruction(op, &operands);
