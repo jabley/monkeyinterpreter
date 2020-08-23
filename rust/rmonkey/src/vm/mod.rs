@@ -10,6 +10,7 @@ pub enum VMError {
     StackOverflow(),
     StackEmpty(),
     TypeMismatch(InfixOperator, Object, Object),
+    UnknownOperation(Op),
 }
 
 impl fmt::Display for VMError {
@@ -24,6 +25,7 @@ impl fmt::Display for VMError {
                 operator,
                 right.type_name()
             ),
+            VMError::UnknownOperation(op) => write!(f, "Unknown operation {}", op.name()),
         }
     }
 }
@@ -34,6 +36,7 @@ impl error::Error for VMError {
             VMError::StackOverflow() => None,
             VMError::StackEmpty() => None,
             VMError::TypeMismatch(_, _, _) => None,
+            VMError::UnknownOperation(_) => None,
         }
     }
 }
@@ -58,7 +61,7 @@ impl VM {
         VM {
             constants: bytecode.constants,
             instructions: bytecode.instructions,
-            stack: stack,
+            stack,
             sp: 0,
         }
     }
@@ -68,7 +71,9 @@ impl VM {
 
         while ip < self.instructions.len() {
             let op_code = self.instructions[ip];
-            match Op::lookup_op(op_code) {
+            let op = Op::lookup_op(op_code);
+
+            match op {
                 Some(Op::Constant) => {
                     let const_index =
                         BigEndian::read_u16(&self.instructions[ip + 1..ip + 3]) as usize;
@@ -76,16 +81,8 @@ impl VM {
 
                     self.push(self.constants[const_index].clone())?;
                 }
-                Some(Op::Add) => {
-                    let right = self.pop()?;
-                    let left = self.pop()?;
-
-                    match (&left, &right) {
-                        (Object::Integer(l), Object::Integer(r)) => {
-                            self.push(Object::Integer(l + r))?
-                        }
-                        _ => return Err(VMError::TypeMismatch(InfixOperator::Plus, left, right)),
-                    }
+                Some(Op::Add) | Some(Op::Sub) | Some(Op::Mul) | Some(Op::Div) => {
+                    self.execute_binary_operation(op.unwrap())?
                 }
                 Some(Op::Pop) => {
                     self.pop()?;
@@ -96,6 +93,33 @@ impl VM {
         }
 
         Ok(self.last_popped_stack_elem())
+    }
+
+    fn execute_binary_operation(&mut self, op: Op) -> Result<(), VMError> {
+        let right = self.pop()?;
+        let left = self.pop()?;
+
+        match (&left, &right) {
+            (Object::Integer(l), Object::Integer(r)) => {
+                self.execute_binary_integer_operation(l, r, op)
+            }
+            _ => Err(VMError::TypeMismatch(InfixOperator::Plus, left, right)),
+        }
+    }
+
+    fn execute_binary_integer_operation(
+        &mut self,
+        l: &i64,
+        r: &i64,
+        op: Op,
+    ) -> Result<(), VMError> {
+        match op {
+            Op::Add => self.push(Object::Integer(l + r)),
+            Op::Sub => self.push(Object::Integer(l - r)),
+            Op::Mul => self.push(Object::Integer(l * r)),
+            Op::Div => self.push(Object::Integer(l / r)),
+            _ => Err(VMError::UnknownOperation(op)),
+        }
     }
 
     fn last_popped_stack_elem(&self) -> Object {

@@ -49,6 +49,9 @@ impl InstructionsFns for Instructions {
 pub enum Op {
     Constant,
     Add,
+    Sub,
+    Mul,
+    Div,
     Pop,
 }
 
@@ -58,6 +61,9 @@ impl Op {
         match self {
             Op::Constant => "OpConstant",
             Op::Add => "OpAdd",
+            Op::Sub => "OpSub",
+            Op::Mul => "OpMul",
+            Op::Div => "OpDiv",
             Op::Pop => "OpPop",
         }
     }
@@ -67,6 +73,9 @@ impl Op {
         match self {
             Op::Constant => vec![2],
             Op::Add => vec![],
+            Op::Sub => vec![],
+            Op::Mul => vec![],
+            Op::Div => vec![],
             Op::Pop => vec![],
         }
     }
@@ -75,7 +84,10 @@ impl Op {
         match op_code {
             0 => Some(Op::Constant),
             1 => Some(Op::Add),
-            2 => Some(Op::Pop),
+            2 => Some(Op::Sub),
+            3 => Some(Op::Mul),
+            4 => Some(Op::Div),
+            5 => Some(Op::Pop),
             _ => None,
         }
     }

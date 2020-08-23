@@ -18,9 +18,7 @@ impl fmt::Display for CompilerError {
 
 impl Error for CompilerError {
     fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match *self {
-            _ => None,
-        }
+        None
     }
 }
 
@@ -70,6 +68,9 @@ impl Compiler {
 
                 match operator {
                     InfixOperator::Plus => self.emit(Op::Add, &[]),
+                    InfixOperator::Minus => self.emit(Op::Sub, &[]),
+                    InfixOperator::Asterisk => self.emit(Op::Mul, &[]),
+                    InfixOperator::Slash => self.emit(Op::Div, &[]),
                     _ => todo!("Unknown operator: {}", operator),
                 }
 
@@ -128,6 +129,36 @@ mod tests {
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
                     make_instruction(Op::Add, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1 - 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Sub, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1 * 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Mul, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "2 / 1",
+                vec![2, 1],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Div, &[]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
