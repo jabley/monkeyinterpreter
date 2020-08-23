@@ -87,20 +87,19 @@ impl VM {
                         _ => return Err(VMError::TypeMismatch(InfixOperator::Plus, left, right)),
                     }
                 }
+                Some(Op::Pop) => {
+                    self.pop()?;
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
         }
 
-        self.stack_top().ok_or(VMError::StackEmpty())
+        Ok(self.last_popped_stack_elem())
     }
 
-    fn stack_top(&self) -> Option<Object> {
-        if self.sp == 0 {
-            None
-        } else {
-            Some(self.stack[self.sp - 1].clone())
-        }
+    fn last_popped_stack_elem(&self) -> Object {
+        self.stack[self.sp].clone()
     }
 
     fn push(&mut self, obj: Object) -> Result<(), VMError> {

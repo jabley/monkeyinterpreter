@@ -53,7 +53,11 @@ impl Compiler {
 
     fn compile_statement(&mut self, stmt: &Statement) -> Result<(), CompilerError> {
         match stmt {
-            Statement::Expression(exp) => self.compile_expression(&exp),
+            Statement::Expression(exp) => {
+                self.compile_expression(&exp)?;
+                self.emit(Op::Pop, &[]);
+                Ok(())
+            }
             _ => todo!(),
         }
     }
@@ -116,15 +120,28 @@ mod tests {
 
     #[test]
     fn integer_arithmetic() {
-        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![(
-            "1 + 2",
-            vec![1, 2],
-            vec![
-                make_instruction(Op::Constant, &[0]),
-                make_instruction(Op::Constant, &[1]),
-                make_instruction(Op::Add, &[]),
-            ],
-        )];
+        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+            (
+                "1 + 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Add, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1; 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Pop, &[]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
 
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
