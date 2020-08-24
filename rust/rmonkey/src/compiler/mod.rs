@@ -82,6 +82,14 @@ impl Compiler {
                 self.emit(Op::Constant, &operands);
                 Ok(())
             }
+            Expression::Boolean(v) => {
+                if *v {
+                    self.emit(Op::True, &[]);
+                } else {
+                    self.emit(Op::False, &[]);
+                }
+                Ok(())
+            }
             _ => todo!("Not handling expression {} yet", exp),
         }
     }
@@ -174,6 +182,34 @@ mod tests {
             ),
         ];
 
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn boolean_expressions() {
+        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+            (
+                "true",
+                vec![],
+                vec![
+                    make_instruction(Op::True, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "false",
+                vec![],
+                vec![
+                    make_instruction(Op::False, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
+    fn run_compiler_tests(tests: Vec<(&str, Vec<i64>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
 

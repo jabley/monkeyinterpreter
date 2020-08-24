@@ -52,6 +52,8 @@ pub enum Op {
     Sub,
     Mul,
     Div,
+    True,
+    False,
     Pop,
 }
 
@@ -64,6 +66,8 @@ impl Op {
             Op::Sub => "OpSub",
             Op::Mul => "OpMul",
             Op::Div => "OpDiv",
+            Op::True => "OpTrue",
+            Op::False => "OpFalse",
             Op::Pop => "OpPop",
         }
     }
@@ -76,6 +80,8 @@ impl Op {
             Op::Sub => vec![],
             Op::Mul => vec![],
             Op::Div => vec![],
+            Op::True => vec![],
+            Op::False => vec![],
             Op::Pop => vec![],
         }
     }
@@ -87,7 +93,9 @@ impl Op {
             2 => Some(Op::Sub),
             3 => Some(Op::Mul),
             4 => Some(Op::Div),
-            5 => Some(Op::Pop),
+            5 => Some(Op::True),
+            6 => Some(Op::False),
+            7 => Some(Op::Pop),
             _ => None,
         }
     }
