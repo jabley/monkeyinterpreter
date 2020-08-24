@@ -84,6 +84,8 @@ impl VM {
                 Some(Op::Add) | Some(Op::Sub) | Some(Op::Mul) | Some(Op::Div) => {
                     self.execute_binary_operation(op.unwrap())?
                 }
+                Some(Op::True) => self.push(Object::Boolean(true))?,
+                Some(Op::False) => self.push(Object::Boolean(false))?,
                 Some(Op::Pop) => {
                     self.pop()?;
                 }
@@ -162,6 +164,20 @@ mod tests {
             ("1 + 2", Object::Integer(3)),
         ];
 
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn boolean_expressions() {
+        let tests = vec![
+            ("true", Object::Boolean(true)),
+            ("false", Object::Boolean(false)),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    fn run_vm_tests(tests: Vec<(&str, Object)>) {
         for (input, expected) in tests {
             match run_vm_test(input, expected) {
                 Ok(_) => {}
