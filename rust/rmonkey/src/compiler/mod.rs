@@ -63,6 +63,16 @@ impl Compiler {
     fn compile_expression(&mut self, exp: &Expression) -> Result<(), CompilerError> {
         match exp {
             Expression::Infix(operator, left, right) => {
+                if *operator == InfixOperator::Lt {
+                    // Treat less-than as a special case.
+                    // We re-order the code and treat it as a greater-than expression.
+                    self.compile_expression(right)?;
+                    self.compile_expression(left)?;
+                    self.emit(Op::GreaterThan, &[]);
+
+                    return Ok(());
+                }
+
                 self.compile_expression(left)?;
                 self.compile_expression(right)?;
 
@@ -71,6 +81,9 @@ impl Compiler {
                     InfixOperator::Minus => self.emit(Op::Sub, &[]),
                     InfixOperator::Asterisk => self.emit(Op::Mul, &[]),
                     InfixOperator::Slash => self.emit(Op::Div, &[]),
+                    InfixOperator::Gt => self.emit(Op::GreaterThan, &[]),
+                    InfixOperator::Eq => self.emit(Op::Equal, &[]),
+                    InfixOperator::NotEq => self.emit(Op::NotEqual, &[]),
                     _ => todo!("Unknown operator: {}", operator),
                 }
 
@@ -201,6 +214,66 @@ mod tests {
                 vec![],
                 vec![
                     make_instruction(Op::False, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1 > 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::GreaterThan, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1 < 2",
+                vec![2, 1],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::GreaterThan, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1 == 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Equal, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "1 != 2",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::NotEqual, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "true == false",
+                vec![],
+                vec![
+                    make_instruction(Op::True, &[]),
+                    make_instruction(Op::False, &[]),
+                    make_instruction(Op::Equal, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "true != false",
+                vec![],
+                vec![
+                    make_instruction(Op::True, &[]),
+                    make_instruction(Op::False, &[]),
+                    make_instruction(Op::NotEqual, &[]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),

@@ -73,7 +73,22 @@ macro_rules! byte_enum {
     };
 }
 
-byte_enum!(Op, [Constant, Add, Sub, Mul, Div, True, False, Pop]);
+byte_enum!(
+    Op,
+    [
+        Constant,
+        Add,
+        Sub,
+        Mul,
+        Div,
+        True,
+        False,
+        Equal,
+        NotEqual,
+        GreaterThan,
+        Pop
+    ]
+);
 
 impl Op {
     /// Returns the human-readable name of the Op code
@@ -86,6 +101,9 @@ impl Op {
             Op::Div => "OpDiv",
             Op::True => "OpTrue",
             Op::False => "OpFalse",
+            Op::Equal => "OpEqual",
+            Op::NotEqual => "OpNotEqual",
+            Op::GreaterThan => "OpGreaterThan",
             Op::Pop => "OpPop",
         }
     }
@@ -100,6 +118,9 @@ impl Op {
             Op::Div => vec![],
             Op::True => vec![],
             Op::False => vec![],
+            Op::Equal => vec![],
+            Op::NotEqual => vec![],
+            Op::GreaterThan => vec![],
             Op::Pop => vec![],
         }
     }

@@ -89,6 +89,9 @@ impl VM {
                 Some(Op::Pop) => {
                     self.pop()?;
                 }
+                Some(Op::Equal) | Some(Op::NotEqual) | Some(Op::GreaterThan) => {
+                    self.execute_comparison_operation(op.unwrap())?
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
@@ -120,6 +123,36 @@ impl VM {
             Op::Sub => self.push(Object::Integer(l - r)),
             Op::Mul => self.push(Object::Integer(l * r)),
             Op::Div => self.push(Object::Integer(l / r)),
+            _ => Err(VMError::UnknownOperation(op)),
+        }
+    }
+
+    fn execute_comparison_operation(&mut self, op: Op) -> Result<(), VMError> {
+        let right = self.pop()?;
+        let left = self.pop()?;
+
+        match (&left, &right) {
+            (Object::Integer(left), Object::Integer(right)) => {
+                self.execute_integer_comparison(op, left, right)
+            }
+            _ => match op {
+                Op::Equal => self.push(Object::Boolean(left.eq(&right))),
+                Op::NotEqual => self.push(Object::Boolean(!left.eq(&right))),
+                _ => Err(VMError::UnknownOperation(op)),
+            },
+        }
+    }
+
+    fn execute_integer_comparison(
+        &mut self,
+        op: Op,
+        left: &i64,
+        right: &i64,
+    ) -> Result<(), VMError> {
+        match op {
+            Op::Equal => self.push(Object::Boolean(left == right)),
+            Op::NotEqual => self.push(Object::Boolean(left != right)),
+            Op::GreaterThan => self.push(Object::Boolean(left > right)),
             _ => Err(VMError::UnknownOperation(op)),
         }
     }
