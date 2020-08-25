@@ -1,7 +1,7 @@
 use crate::ast::Expression;
 use crate::ast::Statement;
 use crate::{
-    ast::{InfixOperator, Program},
+    ast::{InfixOperator, PrefixOperator, Program},
     code::{make_instruction, Instructions, Op},
     object::Object,
 };
@@ -85,6 +85,17 @@ impl Compiler {
                     InfixOperator::Eq => self.emit(Op::Equal, &[]),
                     InfixOperator::NotEq => self.emit(Op::NotEqual, &[]),
                     _ => todo!("Unknown operator: {}", operator),
+                }
+
+                Ok(())
+            }
+
+            Expression::Prefix(operator, expr) => {
+                self.compile_expression(expr)?;
+
+                match operator {
+                    PrefixOperator::Bang => self.emit(Op::Bang, &[]),
+                    PrefixOperator::Minus => self.emit(Op::Minus, &[]),
                 }
 
                 Ok(())
@@ -193,6 +204,15 @@ mod tests {
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
+            (
+                "-1;",
+                vec![1],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Minus, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
         ];
 
         run_compiler_tests(tests);
@@ -274,6 +294,15 @@ mod tests {
                     make_instruction(Op::True, &[]),
                     make_instruction(Op::False, &[]),
                     make_instruction(Op::NotEqual, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "!true",
+                vec![],
+                vec![
+                    make_instruction(Op::True, &[]),
+                    make_instruction(Op::Bang, &[]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),

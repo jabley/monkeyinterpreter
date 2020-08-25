@@ -86,6 +86,8 @@ byte_enum!(
         Equal,
         NotEqual,
         GreaterThan,
+        Minus,
+        Bang,
         Pop
     ]
 );
@@ -104,6 +106,8 @@ impl Op {
             Op::Equal => "OpEqual",
             Op::NotEqual => "OpNotEqual",
             Op::GreaterThan => "OpGreaterThan",
+            Op::Minus => "OpMinus",
+            Op::Bang => "OpBang",
             Op::Pop => "OpPop",
         }
     }
@@ -121,6 +125,8 @@ impl Op {
             Op::Equal => vec![],
             Op::NotEqual => vec![],
             Op::GreaterThan => vec![],
+            Op::Minus => vec![],
+            Op::Bang => vec![],
             Op::Pop => vec![],
         }
     }
