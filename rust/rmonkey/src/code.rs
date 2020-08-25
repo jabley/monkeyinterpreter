@@ -43,19 +43,37 @@ impl InstructionsFns for Instructions {
     }
 }
 
-/// Op is the first byte in an Instruction, followd by an optional number of variable-width operands.
-#[repr(u8)]
-#[derive(Debug)]
-pub enum Op {
-    Constant,
-    Add,
-    Sub,
-    Mul,
-    Div,
-    True,
-    False,
-    Pop,
+macro_rules! byte_enum {
+
+    (@step $_idx:expr, $name:ident, $_byte:ident, []) => {
+        None as Option<$name>
+    };
+
+    (@step $idx:expr, $name:ident, $byte:ident, [$head:ident, $($tail:ident,)*]) => {
+        if $byte == $idx {
+            return Some($name::$head);
+        }
+        byte_enum!(@step $idx + 1u8, $name, $byte, [$($tail,)*]);
+    };
+
+    ($name:ident, [ $( $var: ident ),+ ] ) => {
+        /// Op is the first byte in an Instruction, followd by an optional number of variable-width operands.
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        #[repr(u8)]
+        pub enum $name {
+            $($var,)+
+        }
+
+        impl $name {
+            pub fn lookup_op(byte: u8) -> Option<$name> {
+                byte_enum!(@step 0u8, $name, byte, [$($var,)+]);
+                None // need to have this because it can't quite expand the macro at this point.
+            }
+         }
+    };
 }
+
+byte_enum!(Op, [Constant, Add, Sub, Mul, Div, True, False, Pop]);
 
 impl Op {
     /// Returns the human-readable name of the Op code
@@ -83,20 +101,6 @@ impl Op {
             Op::True => vec![],
             Op::False => vec![],
             Op::Pop => vec![],
-        }
-    }
-
-    pub fn lookup_op(op_code: u8) -> Option<Op> {
-        match op_code {
-            0 => Some(Op::Constant),
-            1 => Some(Op::Add),
-            2 => Some(Op::Sub),
-            3 => Some(Op::Mul),
-            4 => Some(Op::Div),
-            5 => Some(Op::True),
-            6 => Some(Op::False),
-            7 => Some(Op::Pop),
-            _ => None,
         }
     }
 }
