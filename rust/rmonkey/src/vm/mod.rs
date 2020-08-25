@@ -11,6 +11,7 @@ pub enum VMError {
     StackEmpty(),
     TypeMismatch(InfixOperator, Object, Object),
     UnknownOperation(Op),
+    UnsupportedNegationType(Object),
 }
 
 impl fmt::Display for VMError {
@@ -26,18 +27,16 @@ impl fmt::Display for VMError {
                 right.type_name()
             ),
             VMError::UnknownOperation(op) => write!(f, "Unknown operation {}", op.name()),
+            VMError::UnsupportedNegationType(obj) => {
+                write!(f, "Unsupported type for negation: {}", obj.type_name())
+            }
         }
     }
 }
 
 impl error::Error for VMError {
     fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match *self {
-            VMError::StackOverflow() => None,
-            VMError::StackEmpty() => None,
-            VMError::TypeMismatch(_, _, _) => None,
-            VMError::UnknownOperation(_) => None,
-        }
+        None
     }
 }
 
@@ -92,12 +91,24 @@ impl VM {
                 Some(Op::Equal) | Some(Op::NotEqual) | Some(Op::GreaterThan) => {
                     self.execute_comparison_operation(op.unwrap())?
                 }
+                Some(Op::Bang) => self.execute_bang_operator()?,
+                Some(Op::Minus) => self.execute_minus_operator()?,
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
         }
 
         Ok(self.last_popped_stack_elem())
+    }
+
+    fn execute_bang_operator(&mut self) -> Result<(), VMError> {
+        let operand = self.pop()?;
+
+        match operand {
+            Object::Boolean(true) => self.push(Object::Boolean(false)),
+            Object::Boolean(false) => self.push(Object::Boolean(true)),
+            _ => self.push(Object::Boolean(false)),
+        }
     }
 
     fn execute_binary_operation(&mut self, op: Op) -> Result<(), VMError> {
@@ -157,6 +168,15 @@ impl VM {
         }
     }
 
+    fn execute_minus_operator(&mut self) -> Result<(), VMError> {
+        let operand = self.pop()?;
+
+        match operand {
+            Object::Integer(v) => self.push(Object::Integer(-v)),
+            _ => Err(VMError::UnsupportedNegationType(operand)),
+        }
+    }
+
     fn last_popped_stack_elem(&self) -> Object {
         self.stack[self.sp].clone()
     }
@@ -195,6 +215,10 @@ mod tests {
             ("1", Object::Integer(1)),
             ("2", Object::Integer(2)),
             ("1 + 2", Object::Integer(3)),
+            ("-5", Object::Integer(-5)),
+            ("-10", Object::Integer(-10)),
+            ("-50 + 100 + -50", Object::Integer(0)),
+            ("(5 + 10 * 2 + 15 / 3) * 2 + -10", Object::Integer(50)),
         ];
 
         run_vm_tests(tests);
@@ -205,6 +229,12 @@ mod tests {
         let tests = vec![
             ("true", Object::Boolean(true)),
             ("false", Object::Boolean(false)),
+            ("!true", Object::Boolean(false)),
+            ("!false", Object::Boolean(true)),
+            ("!5", Object::Boolean(false)),
+            ("!!true", Object::Boolean(true)),
+            ("!!false", Object::Boolean(false)),
+            ("!!5", Object::Boolean(true)),
         ];
 
         run_vm_tests(tests);
