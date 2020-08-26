@@ -77,7 +77,7 @@ impl Compiler {
 
     fn compile_expression(&mut self, exp: &Expression) -> Result<(), CompilerError> {
         match exp {
-            Expression::If(condition, consequence, _alternative) => {
+            Expression::If(condition, consequence, alternative) => {
                 self.compile_expression(condition)?;
 
                 // emit an Op::JumpNotTruthy with a hard-coded nonsense value for now.
@@ -89,9 +89,28 @@ impl Compiler {
                     self.remove_last_pop();
                 }
 
-                let after_consequence_position = self.instructions.len();
+                match alternative {
+                    Some(body) => {
+                        // emit an Op::Jump with a hard-coded nonsense value for now
+                        let jump_position = self.emit(Op::Jump, &[9999]);
 
-                self.change_operand(jump_not_truthy_position, after_consequence_position);
+                        let after_consequence_position = self.instructions.len();
+                        self.change_operand(jump_not_truthy_position, after_consequence_position);
+
+                        self.compile_block_statement(body)?;
+
+                        if self.is_last_instruction_pop() {
+                            self.remove_last_pop();
+                        }
+
+                        let after_alternative_position = self.instructions.len();
+                        self.change_operand(jump_position, after_alternative_position);
+                    }
+                    None => {
+                        let after_consequence_position = self.instructions.len();
+                        self.change_operand(jump_not_truthy_position, after_consequence_position);
+                    }
+                }
 
                 Ok(())
             }
@@ -384,18 +403,34 @@ mod tests {
 
     #[test]
     fn conditionals() {
-        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![(
-            "if (true) { 10 }; 3333;",
-            vec![10, 3333],
-            vec![
-                make_instruction(Op::True, &[]),           // 0000
-                make_instruction(Op::JumpNotTruthy, &[7]), // 0001
-                make_instruction(Op::Constant, &[0]),      // 0004
-                make_instruction(Op::Pop, &[]),            // 0007
-                make_instruction(Op::Constant, &[1]),      // 0008
-                make_instruction(Op::Pop, &[]),            // 0011
-            ],
-        )];
+        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+            (
+                "if (true) { 10 }; 3333;",
+                vec![10, 3333],
+                vec![
+                    make_instruction(Op::True, &[]),           // 0000
+                    make_instruction(Op::JumpNotTruthy, &[7]), // 0001
+                    make_instruction(Op::Constant, &[0]),      // 0004
+                    make_instruction(Op::Pop, &[]),            // 0007
+                    make_instruction(Op::Constant, &[1]),      // 0008
+                    make_instruction(Op::Pop, &[]),            // 0011
+                ],
+            ),
+            (
+                "if (true) { 10 } else { 20 }; 3333;",
+                vec![10, 20, 3333],
+                vec![
+                    make_instruction(Op::True, &[]),            // 0000
+                    make_instruction(Op::JumpNotTruthy, &[10]), // 0001
+                    make_instruction(Op::Constant, &[0]),       // 0004
+                    make_instruction(Op::Jump, &[13]),          // 0007
+                    make_instruction(Op::Constant, &[1]),       // 0010
+                    make_instruction(Op::Pop, &[]),             // 0013
+                    make_instruction(Op::Constant, &[2]),       // 0014
+                    make_instruction(Op::Pop, &[]),             // 0017
+                ],
+            ),
+        ];
 
         run_compiler_tests(tests);
     }
