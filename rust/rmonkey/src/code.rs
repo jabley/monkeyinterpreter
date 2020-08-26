@@ -116,18 +116,18 @@ impl Op {
     pub fn operand_widths(&self) -> Vec<u8> {
         match self {
             Op::Constant => vec![2],
-            Op::Add => vec![],
-            Op::Sub => vec![],
-            Op::Mul => vec![],
-            Op::Div => vec![],
-            Op::True => vec![],
-            Op::False => vec![],
-            Op::Equal => vec![],
-            Op::NotEqual => vec![],
-            Op::GreaterThan => vec![],
-            Op::Minus => vec![],
-            Op::Bang => vec![],
-            Op::Pop => vec![],
+            Op::Add
+            | Op::Sub
+            | Op::Mul
+            | Op::Div
+            | Op::True
+            | Op::False
+            | Op::Equal
+            | Op::NotEqual
+            | Op::GreaterThan
+            | Op::Minus
+            | Op::Bang
+            | Op::Pop => vec![],
         }
     }
 }
