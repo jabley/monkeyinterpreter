@@ -122,6 +122,7 @@ impl VM {
         match operand {
             Object::Boolean(true) => self.push(Object::Boolean(false)),
             Object::Boolean(false) => self.push(Object::Boolean(true)),
+            Object::Null => self.push(Object::Boolean(true)),
             _ => self.push(Object::Boolean(false)),
         }
     }
@@ -250,6 +251,7 @@ mod tests {
             ("!!true", Object::Boolean(true)),
             ("!!false", Object::Boolean(false)),
             ("!!5", Object::Boolean(true)),
+            ("!(if (false) { 5; })", Object::Boolean(true)),
         ];
 
         run_vm_tests(tests);
