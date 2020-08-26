@@ -93,6 +93,20 @@ impl VM {
                 }
                 Some(Op::Bang) => self.execute_bang_operator()?,
                 Some(Op::Minus) => self.execute_minus_operator()?,
+                Some(Op::Jump) => {
+                    let pos = BigEndian::read_u16(&self.instructions[ip + 1..ip + 3]) as usize;
+                    ip = pos - 1;
+                }
+                Some(Op::JumpNotTruthy) => {
+                    let pos = BigEndian::read_u16(&self.instructions[ip + 1..ip + 3]) as usize;
+                    ip += 2;
+
+                    let condition = self.pop()?;
+
+                    if !condition.is_truthy() {
+                        ip = pos - 1;
+                    }
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
@@ -235,6 +249,21 @@ mod tests {
             ("!!true", Object::Boolean(true)),
             ("!!false", Object::Boolean(false)),
             ("!!5", Object::Boolean(true)),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn conditionals() {
+        let tests = vec![
+            ("if (true) { 10 }", Object::Integer(10)),
+            ("if (true) { 10 } else { 20 }", Object::Integer(10)),
+            ("if (false) { 10 } else { 20 }", Object::Integer(20)),
+            ("if (1) { 10 }", Object::Integer(10)),
+            ("if (1 < 2) { 10 }", Object::Integer(10)),
+            ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
+            ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
         ];
 
         run_vm_tests(tests);
