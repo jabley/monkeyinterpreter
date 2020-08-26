@@ -88,6 +88,8 @@ byte_enum!(
         GreaterThan,
         Minus,
         Bang,
+        JumpNotTruthy,
+        Jump,
         Pop
     ]
 );
@@ -108,6 +110,8 @@ impl Op {
             Op::GreaterThan => "OpGreaterThan",
             Op::Minus => "OpMinus",
             Op::Bang => "OpBang",
+            Op::JumpNotTruthy => "OpJumpNotTruthy",
+            Op::Jump => "OpJump",
             Op::Pop => "OpPop",
         }
     }
@@ -115,7 +119,7 @@ impl Op {
     /// Returns the number of operands (by the length of the result). Each entry is the width of the operands
     pub fn operand_widths(&self) -> Vec<u8> {
         match self {
-            Op::Constant => vec![2],
+            Op::Constant | Op::JumpNotTruthy | Op::Jump => vec![2],
             Op::Add
             | Op::Sub
             | Op::Mul

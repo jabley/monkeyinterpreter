@@ -1,11 +1,17 @@
 use crate::ast::Expression;
 use crate::ast::Statement;
 use crate::{
-    ast::{InfixOperator, PrefixOperator, Program},
+    ast::{BlockStatement, InfixOperator, PrefixOperator, Program},
     code::{make_instruction, Instructions, Op},
     object::Object,
 };
 use std::{error::Error, fmt};
+
+#[derive(Clone)]
+struct EmittedInstruction {
+    op: Op,
+    position: usize,
+}
 
 #[derive(Debug)]
 pub enum CompilerError {}
@@ -27,6 +33,8 @@ impl Error for CompilerError {
 pub struct Compiler {
     instructions: Instructions,
     constants: Vec<Object>,
+    last_instruction: Option<EmittedInstruction>,
+    previous_instruction: Option<EmittedInstruction>,
 }
 
 impl Compiler {
@@ -60,8 +68,33 @@ impl Compiler {
         }
     }
 
+    fn compile_block_statement(&mut self, body: &BlockStatement) -> Result<(), CompilerError> {
+        for stmt in &body.statements {
+            self.compile_statement(stmt)?;
+        }
+        Ok(())
+    }
+
     fn compile_expression(&mut self, exp: &Expression) -> Result<(), CompilerError> {
         match exp {
+            Expression::If(condition, consequence, _alternative) => {
+                self.compile_expression(condition)?;
+
+                // emit an Op::JumpNotTruthy with a hard-coded nonsense value for now.
+                let jump_not_truthy_position = self.emit(Op::JumpNotTruthy, &[9999]); // this is the right structure, but a nonsense value
+
+                self.compile_block_statement(consequence)?;
+
+                if self.is_last_instruction_pop() {
+                    self.remove_last_pop();
+                }
+
+                let after_consequence_position = self.instructions.len();
+
+                self.change_operand(jump_not_truthy_position, after_consequence_position);
+
+                Ok(())
+            }
             Expression::Infix(operator, left, right) => {
                 if *operator == InfixOperator::Lt {
                     // Treat less-than as a special case.
@@ -85,7 +118,7 @@ impl Compiler {
                     InfixOperator::Eq => self.emit(Op::Equal, &[]),
                     InfixOperator::NotEq => self.emit(Op::NotEqual, &[]),
                     _ => todo!("Unknown operator: {}", operator),
-                }
+                };
 
                 Ok(())
             }
@@ -96,7 +129,7 @@ impl Compiler {
                 match operator {
                     PrefixOperator::Bang => self.emit(Op::Bang, &[]),
                     PrefixOperator::Minus => self.emit(Op::Minus, &[]),
-                }
+                };
 
                 Ok(())
             }
@@ -118,9 +151,13 @@ impl Compiler {
         }
     }
 
-    fn emit(&mut self, op: Op, operands: &[usize]) {
+    fn emit(&mut self, op: Op, operands: &[usize]) -> usize {
         let instruction = make_instruction(op, operands);
-        self.add_instruction(instruction);
+        let pos = self.add_instruction(instruction);
+
+        self.set_last_instruction(op, pos);
+
+        pos
     }
 
     fn add_instruction(&mut self, instruction: Instructions) -> usize {
@@ -132,6 +169,40 @@ impl Compiler {
     fn add_constant(&mut self, obj: Object) -> usize {
         self.constants.push(obj);
         self.constants.len() - 1
+    }
+
+    fn set_last_instruction(&mut self, op: Op, pos: usize) {
+        self.previous_instruction = self.last_instruction.take();
+        self.last_instruction = Some(EmittedInstruction { op, position: pos });
+    }
+
+    fn is_last_instruction_pop(&self) -> bool {
+        self.last_instruction
+            .as_ref()
+            .filter(|emitted| emitted.op == Op::Pop)
+            .is_some()
+    }
+
+    fn remove_last_pop(&mut self) {
+        if let Some(emitted) = &self.last_instruction {
+            self.instructions.truncate(emitted.position);
+            self.last_instruction = self.previous_instruction.take();
+        }
+    }
+
+    fn change_operand(&mut self, op_pos: usize, operand: usize) {
+        if let Some(op) = Op::lookup_op(self.instructions[op_pos]) {
+            let new_instruction = make_instruction(op, &[operand]);
+            self.replace_instruction(op_pos, new_instruction);
+        } else {
+            panic!("No such instruction at {}", op_pos);
+        }
+    }
+
+    fn replace_instruction(&mut self, pos: usize, instruction: Instructions) {
+        for (i, b) in instruction.iter().enumerate() {
+            self.instructions[pos + i] = *b;
+        }
     }
 }
 
@@ -307,6 +378,24 @@ mod tests {
                 ],
             ),
         ];
+
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn conditionals() {
+        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![(
+            "if (true) { 10 }; 3333;",
+            vec![10, 3333],
+            vec![
+                make_instruction(Op::True, &[]),           // 0000
+                make_instruction(Op::JumpNotTruthy, &[7]), // 0001
+                make_instruction(Op::Constant, &[0]),      // 0004
+                make_instruction(Op::Pop, &[]),            // 0007
+                make_instruction(Op::Constant, &[1]),      // 0008
+                make_instruction(Op::Pop, &[]),            // 0011
+            ],
+        )];
 
         run_compiler_tests(tests);
     }
