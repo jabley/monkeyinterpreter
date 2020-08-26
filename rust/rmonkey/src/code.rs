@@ -90,7 +90,8 @@ byte_enum!(
         Bang,
         JumpNotTruthy,
         Jump,
-        Pop
+        Pop,
+        Null
     ]
 );
 
@@ -113,6 +114,7 @@ impl Op {
             Op::JumpNotTruthy => "OpJumpNotTruthy",
             Op::Jump => "OpJump",
             Op::Pop => "OpPop",
+            Op::Null => "OpNull",
         }
     }
 
@@ -131,7 +133,8 @@ impl Op {
             | Op::GreaterThan
             | Op::Minus
             | Op::Bang
-            | Op::Pop => vec![],
+            | Op::Pop
+            | Op::Null => vec![],
         }
     }
 }

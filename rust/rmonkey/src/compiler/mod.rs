@@ -89,28 +89,28 @@ impl Compiler {
                     self.remove_last_pop();
                 }
 
+                // emit an Op::Jump with a hard-coded nonsense value for now
+                let jump_position = self.emit(Op::Jump, &[9999]);
+
+                let after_consequence_position = self.instructions.len();
+
+                self.change_operand(jump_not_truthy_position, after_consequence_position);
+
                 match alternative {
                     Some(body) => {
-                        // emit an Op::Jump with a hard-coded nonsense value for now
-                        let jump_position = self.emit(Op::Jump, &[9999]);
-
-                        let after_consequence_position = self.instructions.len();
-                        self.change_operand(jump_not_truthy_position, after_consequence_position);
-
                         self.compile_block_statement(body)?;
 
                         if self.is_last_instruction_pop() {
                             self.remove_last_pop();
                         }
-
-                        let after_alternative_position = self.instructions.len();
-                        self.change_operand(jump_position, after_alternative_position);
                     }
                     None => {
-                        let after_consequence_position = self.instructions.len();
-                        self.change_operand(jump_not_truthy_position, after_consequence_position);
+                        self.emit(Op::Null, &[]);
                     }
                 }
+
+                let after_alternative_position = self.instructions.len();
+                self.change_operand(jump_position, after_alternative_position);
 
                 Ok(())
             }
@@ -408,12 +408,14 @@ mod tests {
                 "if (true) { 10 }; 3333;",
                 vec![10, 3333],
                 vec![
-                    make_instruction(Op::True, &[]),           // 0000
-                    make_instruction(Op::JumpNotTruthy, &[7]), // 0001
-                    make_instruction(Op::Constant, &[0]),      // 0004
-                    make_instruction(Op::Pop, &[]),            // 0007
-                    make_instruction(Op::Constant, &[1]),      // 0008
-                    make_instruction(Op::Pop, &[]),            // 0011
+                    make_instruction(Op::True, &[]),            // 0000
+                    make_instruction(Op::JumpNotTruthy, &[10]), // 0001
+                    make_instruction(Op::Constant, &[0]),       // 0004
+                    make_instruction(Op::Jump, &[11]),          // 0007
+                    make_instruction(Op::Null, &[]),            // 0010
+                    make_instruction(Op::Pop, &[]),             // 0011
+                    make_instruction(Op::Constant, &[1]),       // 0012
+                    make_instruction(Op::Pop, &[]),             // 0015
                 ],
             ),
             (

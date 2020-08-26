@@ -107,6 +107,7 @@ impl VM {
                         ip = pos - 1;
                     }
                 }
+                Some(Op::Null) => self.push(Object::Null)?,
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
@@ -264,6 +265,8 @@ mod tests {
             ("if (1 < 2) { 10 }", Object::Integer(10)),
             ("if (1 < 2) { 10 } else { 20 }", Object::Integer(10)),
             ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
+            ("if (1 > 2) { 10 }", Object::Null),
+            ("if (false) { 10 }", Object::Null),
         ];
 
         run_vm_tests(tests);
