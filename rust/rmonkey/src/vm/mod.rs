@@ -269,6 +269,10 @@ mod tests {
             ("if (1 > 2) { 10 } else { 20 }", Object::Integer(20)),
             ("if (1 > 2) { 10 }", Object::Null),
             ("if (false) { 10 }", Object::Null),
+            (
+                "if ((if (false) { 10 })) { 10 } else { 20 }",
+                Object::Integer(20),
+            ),
         ];
 
         run_vm_tests(tests);
