@@ -1,3 +1,5 @@
+pub mod symbol_table;
+
 use crate::ast::Expression;
 use crate::ast::Statement;
 use crate::{
@@ -6,6 +8,7 @@ use crate::{
     object::Object,
 };
 use std::{error::Error, fmt};
+use symbol_table::SymbolTable;
 
 #[derive(Clone)]
 struct EmittedInstruction {
@@ -14,11 +17,15 @@ struct EmittedInstruction {
 }
 
 #[derive(Debug)]
-pub enum CompilerError {}
+pub enum CompilerError {
+    UnknownVariable(String),
+}
 
 impl fmt::Display for CompilerError {
-    fn fmt(&self, _f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            CompilerError::UnknownVariable(ident) => write!(f, "Unknown variable {}", ident),
+        }
     }
 }
 
@@ -35,6 +42,7 @@ pub struct Compiler {
     constants: Vec<Object>,
     last_instruction: Option<EmittedInstruction>,
     previous_instruction: Option<EmittedInstruction>,
+    symbol_table: SymbolTable,
 }
 
 impl Compiler {
@@ -62,10 +70,15 @@ impl Compiler {
             Statement::Expression(exp) => {
                 self.compile_expression(&exp)?;
                 self.emit(Op::Pop, &[]);
-                Ok(())
+            }
+            Statement::Let(ident, exp) => {
+                self.compile_expression(exp)?;
+                let symbol = self.symbol_table.define(ident);
+                self.emit(Op::SetGlobal, &[symbol.index]);
             }
             _ => todo!(),
         }
+        Ok(())
     }
 
     fn compile_block_statement(&mut self, body: &BlockStatement) -> Result<(), CompilerError> {
@@ -77,6 +90,14 @@ impl Compiler {
 
     fn compile_expression(&mut self, exp: &Expression) -> Result<(), CompilerError> {
         match exp {
+            Expression::Identifier(ident) => {
+                if let Some(symbol) = self.symbol_table.resolve(ident) {
+                    self.emit(Op::GetGlobal, &[symbol.index]);
+                    Ok(())
+                } else {
+                    Err(CompilerError::UnknownVariable(ident.to_string()))
+                }
+            }
             Expression::If(condition, consequence, alternative) => {
                 self.compile_expression(condition)?;
 
@@ -430,6 +451,50 @@ mod tests {
                     make_instruction(Op::Pop, &[]),             // 0013
                     make_instruction(Op::Constant, &[2]),       // 0014
                     make_instruction(Op::Pop, &[]),             // 0017
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn global_let_statements() {
+        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+            (
+                "let one = 1;\n\
+                 let two = 2;",
+                vec![1, 2],
+                vec![
+                    make_instruction(Op::Constant, &[0]),  // 0000
+                    make_instruction(Op::SetGlobal, &[0]), // 0003
+                    make_instruction(Op::Constant, &[1]),  // 0006
+                    make_instruction(Op::SetGlobal, &[1]), // 0009
+                ],
+            ),
+            (
+                "let one = 1;\n\
+                 one;",
+                vec![1],
+                vec![
+                    make_instruction(Op::Constant, &[0]),  // 0000
+                    make_instruction(Op::SetGlobal, &[0]), // 0003
+                    make_instruction(Op::GetGlobal, &[0]), // 0006
+                    make_instruction(Op::Pop, &[]),        // 0009
+                ],
+            ),
+            (
+                "let one = 1;\n\
+                 let two = one;\n\
+                 two;",
+                vec![1],
+                vec![
+                    make_instruction(Op::Constant, &[0]),  // 0000
+                    make_instruction(Op::SetGlobal, &[0]), // 0003
+                    make_instruction(Op::GetGlobal, &[0]), // 0006
+                    make_instruction(Op::SetGlobal, &[1]), // 0009
+                    make_instruction(Op::GetGlobal, &[1]), // 0012
+                    make_instruction(Op::Pop, &[]),        // 0015
                 ],
             ),
         ];

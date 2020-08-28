@@ -91,7 +91,9 @@ byte_enum!(
         JumpNotTruthy,
         Jump,
         Pop,
-        Null
+        Null,
+        SetGlobal,
+        GetGlobal
     ]
 );
 
@@ -115,13 +117,15 @@ impl Op {
             Op::Jump => "OpJump",
             Op::Pop => "OpPop",
             Op::Null => "OpNull",
+            Op::SetGlobal => "OpSetGlobal",
+            Op::GetGlobal => "OpGetGlobal",
         }
     }
 
     /// Returns the number of operands (by the length of the result). Each entry is the width of the operands
     pub fn operand_widths(&self) -> Vec<u8> {
         match self {
-            Op::Constant | Op::JumpNotTruthy | Op::Jump => vec![2],
+            Op::Constant | Op::JumpNotTruthy | Op::Jump | Op::SetGlobal | Op::GetGlobal => vec![2],
             Op::Add
             | Op::Sub
             | Op::Mul
