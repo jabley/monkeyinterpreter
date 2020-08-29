@@ -43,9 +43,14 @@ impl error::Error for VMError {
 /// STACK_SIZE is how deep we can go
 const STACK_SIZE: usize = 2048;
 
+/// GLOBALS_SIZE is the maximum number of global variables that we can support. This is tied to how
+/// wide the operands of Op::SetGlobal and Op::GetGlobal are – currently u8[2]
+const GLOBALS_SIZE: usize = 1 << 16;
+
 /// VM is responsible for executing bytecode. It will do the fetch/decode/execute loop for instructions.
 pub struct VM {
     constants: Vec<Object>,
+    globals: Vec<Object>,
     instructions: Instructions,
 
     stack: Vec<Object>,
@@ -57,8 +62,12 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
+        let mut globals = Vec::with_capacity(GLOBALS_SIZE);
+        globals.resize(GLOBALS_SIZE, Object::Null);
+
         VM {
             constants: bytecode.constants,
+            globals,
             instructions: bytecode.instructions,
             stack,
             sp: 0,
@@ -74,8 +83,7 @@ impl VM {
 
             match op {
                 Some(Op::Constant) => {
-                    let const_index =
-                        BigEndian::read_u16(&self.instructions[ip + 1..ip + 3]) as usize;
+                    let const_index = self.read_u16(ip + 1);
                     ip += 2;
 
                     self.push(self.constants[const_index].clone())?;
@@ -94,11 +102,11 @@ impl VM {
                 Some(Op::Bang) => self.execute_bang_operator()?,
                 Some(Op::Minus) => self.execute_minus_operator()?,
                 Some(Op::Jump) => {
-                    let pos = BigEndian::read_u16(&self.instructions[ip + 1..ip + 3]) as usize;
+                    let pos = self.read_u16(ip + 1);
                     ip = pos - 1;
                 }
                 Some(Op::JumpNotTruthy) => {
-                    let pos = BigEndian::read_u16(&self.instructions[ip + 1..ip + 3]) as usize;
+                    let pos = self.read_u16(ip + 1);
                     ip += 2;
 
                     let condition = self.pop()?;
@@ -108,6 +116,16 @@ impl VM {
                     }
                 }
                 Some(Op::Null) => self.push(Object::Null)?,
+                Some(Op::SetGlobal) => {
+                    let global_index = self.read_u16(ip + 1);
+                    ip += 2;
+                    self.globals[global_index] = self.pop()?;
+                }
+                Some(Op::GetGlobal) => {
+                    let global_index = self.read_u16(ip + 1);
+                    ip += 2;
+                    self.push(self.globals[global_index].clone())?;
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
@@ -216,6 +234,10 @@ impl VM {
             Ok(self.stack[self.sp].clone())
         }
     }
+
+    fn read_u16(&self, index: usize) -> usize {
+        BigEndian::read_u16(&self.instructions[index..index + 2]) as usize
+    }
 }
 
 #[cfg(test)]
@@ -272,6 +294,20 @@ mod tests {
             (
                 "if ((if (false) { 10 })) { 10 } else { 20 }",
                 Object::Integer(20),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn global_let_statements() {
+        let tests = vec![
+            ("let one = 1; one;", Object::Integer(1)),
+            ("let one = 1; let two = 2; one + two;", Object::Integer(3)),
+            (
+                "let one = 1; let two = one + one; one + two;",
+                Object::Integer(3),
             ),
         ];
 
