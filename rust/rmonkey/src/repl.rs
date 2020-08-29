@@ -2,10 +2,10 @@ use std::io;
 use std::io::BufRead;
 use std::io::Write;
 
-use crate::evaluator;
+use crate::compiler::Compiler;
 use crate::lexer::Lexer;
-use crate::object::environment::Environment;
 use crate::parser::Parser;
+use crate::vm::VM;
 
 pub fn run() {
     let stdin = io::stdin();
@@ -30,11 +30,20 @@ pub fn run() {
             continue;
         }
 
-        let mut env = Environment::new();
+        let mut compiler = Compiler::new();
+        let bytecode = match compiler.compile(&program) {
+            Ok(bytecode) => bytecode,
+            Err(err) => {
+                println!("Whoops! Compilation failed:\n{}\n", err);
+                continue;
+            }
+        };
 
-        match evaluator::eval(&program, &mut env) {
-            Ok(evaluated) => println!("{}", evaluated),
-            Err(err) => println!("ERROR: {}", err),
+        let mut vm = VM::new(bytecode);
+
+        match vm.run() {
+            Ok(result) => println!("{}", result),
+            Err(err) => println!("Whoops! Executing bytecode failed:\n{}\n", err),
         }
     }
 }
