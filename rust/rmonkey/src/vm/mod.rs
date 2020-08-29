@@ -50,11 +50,18 @@ const GLOBALS_SIZE: usize = 1 << 16;
 /// VM is responsible for executing bytecode. It will do the fetch/decode/execute loop for instructions.
 pub struct VM {
     constants: Vec<Object>,
-    globals: Vec<Object>,
+    pub globals: Vec<Object>,
     instructions: Instructions,
 
     stack: Vec<Object>,
     sp: usize, // aka stack pointer. Always points to the next value. Top of stack is `stack[sp-1]`
+}
+
+pub fn new_globals() -> Vec<Object> {
+    let mut globals = Vec::with_capacity(GLOBALS_SIZE);
+    globals.resize(GLOBALS_SIZE, Object::Null);
+
+    globals
 }
 
 impl VM {
@@ -62,16 +69,21 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
-        let mut globals = Vec::with_capacity(GLOBALS_SIZE);
-        globals.resize(GLOBALS_SIZE, Object::Null);
-
         VM {
             constants: bytecode.constants,
-            globals,
+            globals: new_globals(),
             instructions: bytecode.instructions,
             stack,
             sp: 0,
         }
+    }
+
+    pub fn new_with_globals_store(bytecode: Bytecode, globals: Vec<Object>) -> Self {
+        let mut vm = Self::new(bytecode);
+
+        vm.globals = globals;
+
+        vm
     }
 
     pub fn run(&mut self) -> Result<Object, VMError> {

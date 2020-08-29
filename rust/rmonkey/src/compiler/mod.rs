@@ -8,7 +8,7 @@ use crate::{
     object::Object,
 };
 use std::{error::Error, fmt};
-use symbol_table::SymbolTable;
+pub use symbol_table::SymbolTable;
 
 #[derive(Clone)]
 struct EmittedInstruction {
@@ -39,15 +39,26 @@ impl Error for CompilerError {
 #[derive(Default)]
 pub struct Compiler {
     instructions: Instructions,
-    constants: Vec<Object>,
+    pub constants: Vec<Object>,
     last_instruction: Option<EmittedInstruction>,
     previous_instruction: Option<EmittedInstruction>,
-    symbol_table: SymbolTable,
+    pub symbol_table: SymbolTable,
 }
 
 impl Compiler {
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// new_with_state returns a Compiler that can accept a SymbolTable and constants of a previous
+    /// compilation. This is needed by the REPL.
+    pub fn new_with_state(symbol_table: SymbolTable, constants: Vec<Object>) -> Self {
+        let mut compiler = Self::new();
+
+        compiler.symbol_table = symbol_table;
+        compiler.constants = constants;
+
+        compiler
     }
 
     pub fn compile(&mut self, program: &Program) -> Result<Bytecode, CompilerError> {

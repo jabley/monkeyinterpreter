@@ -1,14 +1,20 @@
+use crate::object::Object;
+use crate::vm::new_globals;
 use std::io;
 use std::io::BufRead;
 use std::io::Write;
 
-use crate::compiler::Compiler;
+use crate::compiler::{Compiler, SymbolTable};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::vm::VM;
 
 pub fn run() {
     let stdin = io::stdin();
+
+    let mut constants: Vec<Object> = vec![];
+    let mut globals = new_globals();
+    let mut symbol_table = SymbolTable::default();
 
     loop {
         print!(">> ");
@@ -30,21 +36,24 @@ pub fn run() {
             continue;
         }
 
-        let mut compiler = Compiler::new();
-        let bytecode = match compiler.compile(&program) {
-            Ok(bytecode) => bytecode,
-            Err(err) => {
-                println!("Whoops! Compilation failed:\n{}\n", err);
-                continue;
+        let mut compiler = Compiler::new_with_state(symbol_table, constants);
+
+        match compiler.compile(&program) {
+            Ok(bytecode) => {
+                let mut vm = VM::new_with_globals_store(bytecode, globals);
+
+                match vm.run() {
+                    Ok(result) => println!("{}", result),
+                    Err(err) => println!("Whoops! Executing bytecode failed:\n{}\n", err),
+                }
+
+                globals = vm.globals;
             }
+            Err(err) => println!("Whoops! Compilation failed:\n{}\n", err),
         };
 
-        let mut vm = VM::new(bytecode);
-
-        match vm.run() {
-            Ok(result) => println!("{}", result),
-            Err(err) => println!("Whoops! Executing bytecode failed:\n{}\n", err),
-        }
+        symbol_table = compiler.symbol_table;
+        constants = compiler.constants;
     }
 }
 
