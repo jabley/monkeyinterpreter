@@ -275,10 +275,10 @@ mod tests {
 
     #[test]
     fn integer_arithmetic() {
-        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+        let tests = vec![
             (
                 "1 + 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -288,7 +288,7 @@ mod tests {
             ),
             (
                 "1 - 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -298,7 +298,7 @@ mod tests {
             ),
             (
                 "1 * 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -308,7 +308,7 @@ mod tests {
             ),
             (
                 "2 / 1",
-                vec![2, 1],
+                vec![Object::Integer(2), Object::Integer(1)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -318,7 +318,7 @@ mod tests {
             ),
             (
                 "1; 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Pop, &[]),
@@ -328,7 +328,7 @@ mod tests {
             ),
             (
                 "-1;",
-                vec![1],
+                vec![Object::Integer(1)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Minus, &[]),
@@ -342,7 +342,7 @@ mod tests {
 
     #[test]
     fn boolean_expressions() {
-        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+        let tests = vec![
             (
                 "true",
                 vec![],
@@ -361,7 +361,7 @@ mod tests {
             ),
             (
                 "1 > 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -371,7 +371,7 @@ mod tests {
             ),
             (
                 "1 < 2",
-                vec![2, 1],
+                vec![Object::Integer(2), Object::Integer(1)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -381,7 +381,7 @@ mod tests {
             ),
             (
                 "1 == 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -391,7 +391,7 @@ mod tests {
             ),
             (
                 "1 != 2",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -435,10 +435,10 @@ mod tests {
 
     #[test]
     fn conditionals() {
-        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+        let tests = vec![
             (
                 "if (true) { 10 }; 3333;",
-                vec![10, 3333],
+                vec![Object::Integer(10), Object::Integer(3333)],
                 vec![
                     make_instruction(Op::True, &[]),            // 0000
                     make_instruction(Op::JumpNotTruthy, &[10]), // 0001
@@ -452,7 +452,11 @@ mod tests {
             ),
             (
                 "if (true) { 10 } else { 20 }; 3333;",
-                vec![10, 20, 3333],
+                vec![
+                    Object::Integer(10),
+                    Object::Integer(20),
+                    Object::Integer(3333),
+                ],
                 vec![
                     make_instruction(Op::True, &[]),            // 0000
                     make_instruction(Op::JumpNotTruthy, &[10]), // 0001
@@ -471,11 +475,11 @@ mod tests {
 
     #[test]
     fn global_let_statements() {
-        let tests: Vec<(&str, Vec<i64>, Vec<Instructions>)> = vec![
+        let tests = vec![
             (
                 "let one = 1;\n\
                  let two = 2;",
-                vec![1, 2],
+                vec![Object::Integer(1), Object::Integer(2)],
                 vec![
                     make_instruction(Op::Constant, &[0]),  // 0000
                     make_instruction(Op::SetGlobal, &[0]), // 0003
@@ -486,7 +490,7 @@ mod tests {
             (
                 "let one = 1;\n\
                  one;",
-                vec![1],
+                vec![Object::Integer(1)],
                 vec![
                     make_instruction(Op::Constant, &[0]),  // 0000
                     make_instruction(Op::SetGlobal, &[0]), // 0003
@@ -498,7 +502,7 @@ mod tests {
                 "let one = 1;\n\
                  let two = one;\n\
                  two;",
-                vec![1],
+                vec![Object::Integer(1)],
                 vec![
                     make_instruction(Op::Constant, &[0]),  // 0000
                     make_instruction(Op::SetGlobal, &[0]), // 0003
@@ -513,7 +517,7 @@ mod tests {
         run_compiler_tests(tests);
     }
 
-    fn run_compiler_tests(tests: Vec<(&str, Vec<i64>, Vec<Instructions>)>) {
+    fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
 
@@ -529,7 +533,7 @@ mod tests {
         }
     }
 
-    fn expect_constants(expected: Vec<i64>, actual: Vec<crate::object::Object>) {
+    fn expect_constants(expected: Vec<Object>, actual: Vec<Object>) {
         assert_eq!(
             expected.len(),
             actual.len(),
@@ -539,12 +543,12 @@ mod tests {
         );
 
         for (i, b) in expected.iter().enumerate() {
-            match actual[i] {
-                Object::Integer(actual) => {
+            match (b, &actual[i]) {
+                (Object::Integer(expected_value), Object::Integer(actual_value)) => {
                     assert_eq!(
-                        *b, actual,
-                        "wrong instruction at {}. expected {} but got {}",
-                        i, b, actual
+                        expected_value, actual_value,
+                        "wrong constant at {}. expected {} but got {}",
+                        i, b, actual_value
                     );
                 }
                 _ => todo!(
