@@ -198,6 +198,12 @@ impl Compiler {
                 }
                 Ok(())
             }
+            Expression::StringLiteral(s) => {
+                let constant = self.add_constant(Object::String(s.to_string()));
+                let operands = vec![constant];
+                self.emit(Op::Constant, &operands);
+                Ok(())
+            }
             _ => todo!("Not handling expression {} yet", exp),
         }
     }
@@ -517,6 +523,35 @@ mod tests {
         run_compiler_tests(tests);
     }
 
+    #[test]
+    fn string_expressions() {
+        let tests = vec![
+            (
+                r#""monkey""#,
+                vec![Object::String("monkey".to_owned())],
+                vec![
+                    make_instruction(Op::Constant, &[0]), // 0000
+                    make_instruction(Op::Pop, &[]),       // 0003
+                ],
+            ),
+            (
+                r#""mon" + "key""#,
+                vec![
+                    Object::String("mon".to_owned()),
+                    Object::String("key".to_owned()),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]), // 0000
+                    make_instruction(Op::Constant, &[1]), // 0003
+                    make_instruction(Op::Add, &[]),       // 0006
+                    make_instruction(Op::Pop, &[]),       // 0007
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
     fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
@@ -545,6 +580,13 @@ mod tests {
         for (i, b) in expected.iter().enumerate() {
             match (b, &actual[i]) {
                 (Object::Integer(expected_value), Object::Integer(actual_value)) => {
+                    assert_eq!(
+                        expected_value, actual_value,
+                        "wrong constant at {}. expected {} but got {}",
+                        i, b, actual_value
+                    );
+                }
+                (Object::String(expected_value), Object::String(actual_value)) => {
                     assert_eq!(
                         expected_value, actual_value,
                         "wrong constant at {}. expected {} but got {}",
