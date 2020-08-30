@@ -165,6 +165,9 @@ impl VM {
             (Object::Integer(l), Object::Integer(r)) => {
                 self.execute_binary_integer_operation(l, r, op)
             }
+            (Object::String(l), Object::String(r)) => {
+                self.execute_binary_string_operation(l, r, op)
+            }
             _ => Err(VMError::TypeMismatch(InfixOperator::Plus, left, right)),
         }
     }
@@ -180,6 +183,13 @@ impl VM {
             Op::Sub => self.push(Object::Integer(l - r)),
             Op::Mul => self.push(Object::Integer(l * r)),
             Op::Div => self.push(Object::Integer(l / r)),
+            _ => Err(VMError::UnknownOperation(op)),
+        }
+    }
+
+    fn execute_binary_string_operation(&mut self, l: &str, r: &str, op: Op) -> Result<(), VMError> {
+        match op {
+            Op::Add => self.push(Object::String(format!("{}{}", l, r))),
             _ => Err(VMError::UnknownOperation(op)),
         }
     }
@@ -320,6 +330,20 @@ mod tests {
             (
                 "let one = 1; let two = one + one; one + two;",
                 Object::Integer(3),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn string_expressions() {
+        let tests = vec![
+            (r#""monkey""#, Object::String("monkey".to_owned())),
+            (r#""mon" + "key""#, Object::String("monkey".to_owned())),
+            (
+                r#""mon" + "key" + "banana""#,
+                Object::String("monkeybanana".to_owned()),
             ),
         ];
 
