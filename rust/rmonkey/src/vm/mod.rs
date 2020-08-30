@@ -138,12 +138,30 @@ impl VM {
                     ip += 2;
                     self.push(self.globals[global_index].clone())?;
                 }
+                Some(Op::Array) => {
+                    let num_elements = self.read_u16(ip + 1);
+                    ip += 2;
+
+                    let array = self.build_array(self.sp - num_elements, self.sp)?;
+                    self.sp -= num_elements;
+
+                    self.push(array)?;
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
         }
 
         Ok(self.last_popped_stack_elem())
+    }
+
+    fn build_array(&self, start: usize, end: usize) -> Result<Object, VMError> {
+        let mut elements = Vec::with_capacity(end - start);
+        elements.resize(elements.capacity(), Object::Null);
+
+        elements[0..(end - start)].clone_from_slice(&self.stack[start..end]);
+
+        Ok(Object::Array(elements))
     }
 
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
@@ -344,6 +362,31 @@ mod tests {
             (
                 r#""mon" + "key" + "banana""#,
                 Object::String("monkeybanana".to_owned()),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn array_literals() {
+        let tests = vec![
+            ("[]", Object::Array(vec![])),
+            (
+                "[1, 2, 3]",
+                Object::Array(vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                ]),
+            ),
+            (
+                "[1 + 2, 3 * 4, 5 + 6]",
+                Object::Array(vec![
+                    Object::Integer(3),
+                    Object::Integer(12),
+                    Object::Integer(11),
+                ]),
             ),
         ];
 
