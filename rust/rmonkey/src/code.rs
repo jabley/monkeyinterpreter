@@ -93,7 +93,8 @@ byte_enum!(
         Pop,
         Null,
         SetGlobal,
-        GetGlobal
+        GetGlobal,
+        Array
     ]
 );
 
@@ -119,13 +120,20 @@ impl Op {
             Op::Null => "OpNull",
             Op::SetGlobal => "OpSetGlobal",
             Op::GetGlobal => "OpGetGlobal",
+            Op::Array => "OpArray",
         }
     }
 
     /// Returns the number of operands (by the length of the result). Each entry is the width of the operands
     pub fn operand_widths(&self) -> Vec<u8> {
         match self {
-            Op::Constant | Op::JumpNotTruthy | Op::Jump | Op::SetGlobal | Op::GetGlobal => vec![2],
+            Op::Constant
+            | Op::JumpNotTruthy
+            | Op::Jump
+            | Op::SetGlobal
+            | Op::GetGlobal
+            | Op::Array // This limits an Array to only contain (1 << 16) -1 = 65535 elements in an array
+            => vec![2],
             Op::Add
             | Op::Sub
             | Op::Mul

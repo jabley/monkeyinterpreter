@@ -204,6 +204,14 @@ impl Compiler {
                 self.emit(Op::Constant, &operands);
                 Ok(())
             }
+            Expression::ArrayLiteral(elements) => {
+                for exp in elements {
+                    self.compile_expression(exp)?;
+                }
+                self.emit(Op::Array, &[elements.len()]);
+
+                Ok(())
+            }
             _ => todo!("Not handling expression {} yet", exp),
         }
     }
@@ -545,6 +553,57 @@ mod tests {
                     make_instruction(Op::Constant, &[1]), // 0003
                     make_instruction(Op::Add, &[]),       // 0006
                     make_instruction(Op::Pop, &[]),       // 0007
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn array_literals() {
+        let tests = vec![
+            (
+                "[]",
+                vec![],
+                vec![
+                    make_instruction(Op::Array, &[0]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "[1, 2, 3]",
+                vec![Object::Integer(1), Object::Integer(2), Object::Integer(3)],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Array, &[3]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "[1 + 2, 3 - 4, 5 * 6]",
+                vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                    Object::Integer(4),
+                    Object::Integer(5),
+                    Object::Integer(6),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Add, &[]),
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Constant, &[3]),
+                    make_instruction(Op::Sub, &[]),
+                    make_instruction(Op::Constant, &[4]),
+                    make_instruction(Op::Constant, &[5]),
+                    make_instruction(Op::Mul, &[]),
+                    make_instruction(Op::Array, &[3]),
+                    make_instruction(Op::Pop, &[]),
                 ],
             ),
         ];
