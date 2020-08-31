@@ -1,12 +1,15 @@
 use crate::ast::InfixOperator;
 use crate::code::{Instructions, Op};
 use crate::compiler::Bytecode;
-use crate::object::Object;
+use crate::object::EvalError;
+use crate::object::{HashKey, Object};
 use byteorder::{BigEndian, ByteOrder};
+use indexmap::IndexMap;
 use std::{error, fmt};
 
 #[derive(Debug)]
 pub enum VMError {
+    Eval(EvalError),
     StackOverflow(),
     StackEmpty(),
     TypeMismatch(InfixOperator, Object, Object),
@@ -30,6 +33,7 @@ impl fmt::Display for VMError {
             VMError::UnsupportedNegationType(obj) => {
                 write!(f, "Unsupported type for negation: {}", obj.type_name())
             }
+            VMError::Eval(e) => write!(f, "{}", e),
         }
     }
 }
@@ -147,6 +151,15 @@ impl VM {
 
                     self.push(array)?;
                 }
+                Some(Op::Hash) => {
+                    let num_elements = self.read_u16(ip + 1);
+                    ip += 2;
+
+                    let hash = self.build_hash(self.sp - num_elements, self.sp)?;
+                    self.sp -= num_elements;
+
+                    self.push(hash)?;
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
@@ -162,6 +175,23 @@ impl VM {
         elements[0..(end - start)].clone_from_slice(&self.stack[start..end]);
 
         Ok(Object::Array(elements))
+    }
+
+    fn build_hash(&self, start: usize, end: usize) -> Result<Object, VMError> {
+        let mut hash = IndexMap::new();
+
+        let mut i = start;
+
+        while i < end {
+            let key = self.stack[i].clone();
+            let value = self.stack[i + 1].clone();
+
+            let hash_key = HashKey::from_object(key).or_else(|e| Err(VMError::Eval(e)))?;
+            hash.insert(hash_key, value);
+            i += 2;
+        }
+
+        Ok(Object::Hash(hash))
     }
 
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
@@ -285,6 +315,7 @@ mod tests {
 
     use super::*;
     use crate::{ast::Program, compiler::Compiler, lexer::Lexer, object::Object, parser::Parser};
+    use indexmap::IndexMap;
     use std::error;
 
     #[test]
@@ -391,6 +422,44 @@ mod tests {
         ];
 
         run_vm_tests(tests);
+    }
+
+    #[test]
+    fn hash_literals() {
+        let tests = vec![
+            ("{}", build_hash(vec![])),
+            (
+                "{1: 2, 2: 3}",
+                build_hash(vec![
+                    (Object::Integer(1), Object::Integer(2)),
+                    ((Object::Integer(2), Object::Integer(3))),
+                ]),
+            ),
+            (
+                "{1 + 1: 2 * 2, 3 + 3: 4 * 4}",
+                build_hash(vec![
+                    (Object::Integer(2), Object::Integer(4)),
+                    ((Object::Integer(6), Object::Integer(16))),
+                ]),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    fn build_hash(pairs: Vec<(Object, Object)>) -> Object {
+        let mut hash = IndexMap::new();
+
+        for (k, v) in pairs {
+            match HashKey::from_object(k) {
+                Ok(key) => {
+                    hash.insert(key, v);
+                }
+                Err(err) => panic!("{}", err),
+            }
+        }
+
+        Object::Hash(hash)
     }
 
     fn run_vm_tests(tests: Vec<(&str, Object)>) {

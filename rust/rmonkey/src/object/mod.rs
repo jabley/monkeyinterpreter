@@ -165,6 +165,7 @@ impl HashKey {
 pub type EvalResult = std::result::Result<Object, EvalError>;
 pub type BuiltIn = fn(Vec<Object>) -> EvalResult;
 
+#[derive(Debug)]
 pub enum EvalError {
     IdentifierNotFound(String),
     NotCallable(Object),
