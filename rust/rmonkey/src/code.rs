@@ -94,7 +94,8 @@ byte_enum!(
         Null,
         SetGlobal,
         GetGlobal,
-        Array
+        Array,
+        Hash
     ]
 );
 
@@ -121,6 +122,7 @@ impl Op {
             Op::SetGlobal => "OpSetGlobal",
             Op::GetGlobal => "OpGetGlobal",
             Op::Array => "OpArray",
+            Op::Hash => "OpHash",
         }
     }
 
@@ -133,7 +135,7 @@ impl Op {
             | Op::SetGlobal
             | Op::GetGlobal
             | Op::Array // This limits an Array to only contain (1 << 16) -1 = 65535 elements in an array
-            => vec![2],
+            | Op::Hash => vec![2],
             Op::Add
             | Op::Sub
             | Op::Mul
