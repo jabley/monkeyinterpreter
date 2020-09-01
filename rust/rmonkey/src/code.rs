@@ -5,7 +5,7 @@ pub type Instructions = Vec<u8>;
 
 /// InstructionsFns is a collection of functions for working with Instructions.
 /// We can't implement fmt::Display for a type, so we have this instead.
-trait InstructionsFns {
+pub trait InstructionsFns {
     fn to_string(&self) -> String;
 }
 
