@@ -12,6 +12,7 @@ use std::{error, fmt};
 
 #[derive(Debug)]
 pub enum VMError {
+    CallingNonFunction(Object),
     Eval(EvalError),
     IndexNotSupported(Object),
     StackOverflow(),
@@ -40,6 +41,9 @@ impl fmt::Display for VMError {
             VMError::Eval(e) => write!(f, "{}", e),
             VMError::IndexNotSupported(index) => {
                 write!(f, "Index not supported: {}", index.type_name())
+            }
+            VMError::CallingNonFunction(obj) => {
+                write!(f, "Calling non-function: {}", obj.type_name())
             }
         }
     }
@@ -181,6 +185,24 @@ impl VM {
                     let left = self.pop()?;
 
                     self.execute_index_expression(left, index)?;
+                }
+                Some(Op::Call) => match &self.stack[self.sp - 1] {
+                    func @ Object::CompiledFunction(_) => {
+                        let frame = Frame::new(func.clone());
+                        self.push_frame(frame);
+                        continue; // we don't want to increment the new current_frame ip
+                    }
+                    other => {
+                        return Err(VMError::CallingNonFunction(other.clone()));
+                    }
+                },
+                Some(Op::ReturnValue) => {
+                    let return_value = self.pop()?;
+
+                    self.pop_frame();
+                    self.pop()?;
+
+                    self.push(return_value)?;
                 }
                 _ => todo!("Unhandled op code {}", op_code),
             }
@@ -550,6 +572,50 @@ mod tests {
             ("{1: 1, 2: 2}[2]", Object::Integer(2)),
             ("{1: 1}[0]", Object::Null),
             ("{}[0]", Object::Null),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn calling_functions_without_arguments() {
+        let tests = vec![
+            (
+                "let fivePlusTen = fn() { 5 + 10; };\
+                 fivePlusTen();",
+                Object::Integer(15),
+            ),
+            (
+                "let one = fn() { 1; };\
+                 let two = fn() { 2; };\
+                 one() + two()",
+                Object::Integer(3),
+            ),
+            (
+                "let a = fn() { 1 };\
+                 let b = fn() { a() + 1 };\
+                 let c = fn() { b() + 1 };\
+                 c()",
+                Object::Integer(3),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn functions_with_return_statements() {
+        let tests = vec![
+            (
+                "let earlyExit = fn() { return 99; 100; };\
+                 earlyExit();",
+                Object::Integer(99),
+            ),
+            (
+                "let earlyExit = fn() { return 99; return 100; };\
+                 earlyExit();",
+                Object::Integer(99),
+            ),
         ];
 
         run_vm_tests(tests);
