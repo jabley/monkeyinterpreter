@@ -10,6 +10,7 @@ use std::{error, fmt};
 #[derive(Debug)]
 pub enum VMError {
     Eval(EvalError),
+    IndexNotSupported(Object),
     StackOverflow(),
     StackEmpty(),
     TypeMismatch(InfixOperator, Object, Object),
@@ -34,6 +35,9 @@ impl fmt::Display for VMError {
                 write!(f, "Unsupported type for negation: {}", obj.type_name())
             }
             VMError::Eval(e) => write!(f, "{}", e),
+            VMError::IndexNotSupported(index) => {
+                write!(f, "Index not supported: {}", index.type_name())
+            }
         }
     }
 }
@@ -160,6 +164,12 @@ impl VM {
 
                     self.push(hash)?;
                 }
+                Some(Op::Index) => {
+                    let index = self.pop()?;
+                    let left = self.pop()?;
+
+                    self.execute_index_expression(left, index)?;
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             ip += 1;
@@ -192,6 +202,17 @@ impl VM {
         }
 
         Ok(Object::Hash(hash))
+    }
+
+    fn execute_array_index(&mut self, elements: &[Object], index: i64) -> Result<(), VMError> {
+        // bounds check
+        let max = (elements.len() as i64) - 1;
+
+        if index < 0 || index > max {
+            self.push(Object::Null)
+        } else {
+            self.push(elements[index as usize].clone())
+        }
     }
 
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
@@ -255,6 +276,28 @@ impl VM {
                 Op::NotEqual => self.push(Object::Boolean(!left.eq(&right))),
                 _ => Err(VMError::UnknownOperation(op)),
             },
+        }
+    }
+
+    fn execute_index_expression(&mut self, left: Object, index: Object) -> Result<(), VMError> {
+        match (&left, &index) {
+            (Object::Array(elements), Object::Integer(i)) => {
+                self.execute_array_index(&elements, *i)
+            }
+            (Object::Hash(map), key) => self.execute_hash_index(map, key),
+            _ => Err(VMError::IndexNotSupported(left)),
+        }
+    }
+
+    fn execute_hash_index(
+        &mut self,
+        map: &IndexMap<HashKey, Object>,
+        key: &Object,
+    ) -> Result<(), VMError> {
+        let hash_key = HashKey::from_object(key.clone()).or_else(|e| Err(VMError::Eval(e)))?;
+        match map.get(&hash_key) {
+            Some(v) => self.push(v.clone()),
+            None => self.push(Object::Null),
         }
     }
 
@@ -460,6 +503,24 @@ mod tests {
         }
 
         Object::Hash(hash)
+    }
+
+    #[test]
+    fn index_expressions() {
+        let tests = vec![
+            ("[1, 2, 3][1]", Object::Integer(2)),
+            ("[1, 2, 3][0 + 2]", Object::Integer(3)),
+            ("[[1, 1, 1]][0][0]", Object::Integer(1)),
+            ("[][0]", Object::Null),
+            ("[1, 2, 3][99]", Object::Null),
+            ("[1][-1]", Object::Null),
+            ("{1: 1, 2: 2}[1]", Object::Integer(1)),
+            ("{1: 1, 2: 2}[2]", Object::Integer(2)),
+            ("{1: 1}[0]", Object::Null),
+            ("{}[0]", Object::Null),
+        ];
+
+        run_vm_tests(tests);
     }
 
     fn run_vm_tests(tests: Vec<(&str, Object)>) {
