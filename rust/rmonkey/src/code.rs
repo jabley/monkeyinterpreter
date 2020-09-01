@@ -96,7 +96,10 @@ byte_enum!(
         GetGlobal,
         Array,
         Hash,
-        Index
+        Index,
+        Call, // tell the VM to start executing the Object::CompiledFunction sitting on top of the stack
+        ReturnValue, // tell the VM to return the value on top of the stack to the calling context and to resume execution there
+        Return // similar to ReturnValue except there is no explicit return value to return but an implicit Object::Null
     ]
 );
 
@@ -125,6 +128,9 @@ impl Op {
             Op::Array => "OpArray",
             Op::Hash => "OpHash",
             Op::Index => "OpIndex",
+            Op::Call => "OpCall",
+            Op::ReturnValue => "OpReturnValue",
+            Op::Return => "OpReturn",
         }
     }
 
@@ -151,7 +157,10 @@ impl Op {
             | Op::Bang
             | Op::Pop
             | Op::Null
-            | Op::Index => vec![],
+            | Op::Index
+            | Op::Call
+            | Op::ReturnValue
+            | Op::Return => vec![],
         }
     }
 }
