@@ -35,19 +35,39 @@ impl Error for CompilerError {
     }
 }
 
+/// CompilationScope helps keep track of scope when compiling functions
+#[derive(Default)]
+struct CompilationScope {
+    instructions: Instructions,
+    last_instruction: Option<EmittedInstruction>,
+    previous_instruction: Option<EmittedInstruction>,
+}
+
+impl CompilationScope {
+    fn new() -> Self {
+        Default::default()
+    }
+}
+
 /// Compiler is responsible for taking an AST and turning it into bytecode.
 #[derive(Default)]
 pub struct Compiler {
-    instructions: Instructions,
     pub constants: Vec<Object>,
-    last_instruction: Option<EmittedInstruction>,
-    previous_instruction: Option<EmittedInstruction>,
     pub symbol_table: SymbolTable,
+
+    scopes: Vec<CompilationScope>,
+    scope_index: usize,
 }
 
 impl Compiler {
     pub fn new() -> Self {
-        Default::default()
+        let mut res: Self = Default::default();
+
+        let main_scope = CompilationScope::new();
+
+        res.scopes.push(main_scope);
+
+        res
     }
 
     /// new_with_state returns a Compiler that can accept a SymbolTable and constants of a previous
@@ -71,7 +91,7 @@ impl Compiler {
 
     fn bytecode(&self) -> Bytecode {
         Bytecode {
-            instructions: self.instructions.clone(),
+            instructions: self.current_instructions().clone(),
             constants: self.constants.clone(),
         }
     }
@@ -124,7 +144,7 @@ impl Compiler {
                 // emit an Op::Jump with a hard-coded nonsense value for now
                 let jump_position = self.emit(Op::Jump, &[9999]);
 
-                let after_consequence_position = self.instructions.len();
+                let after_consequence_position = self.current_instructions().len();
 
                 self.change_operand(jump_not_truthy_position, after_consequence_position);
 
@@ -141,7 +161,7 @@ impl Compiler {
                     }
                 }
 
-                let after_alternative_position = self.instructions.len();
+                let after_alternative_position = self.current_instructions().len();
                 self.change_operand(jump_position, after_alternative_position);
 
                 Ok(())
@@ -234,6 +254,10 @@ impl Compiler {
         }
     }
 
+    pub fn current_instructions(&self) -> &Instructions {
+        &self.scopes[self.scope_index].instructions
+    }
+
     fn emit(&mut self, op: Op, operands: &[usize]) -> usize {
         let instruction = make_instruction(op, operands);
         let pos = self.add_instruction(instruction);
@@ -243,9 +267,19 @@ impl Compiler {
         pos
     }
 
+    fn enter_scope(&mut self) {
+        let scope = CompilationScope::new();
+
+        self.scopes.push(scope);
+        self.scope_index += 1;
+    }
+
     fn add_instruction(&mut self, instruction: Instructions) -> usize {
-        let pos_new_instruction = self.instructions.len();
-        self.instructions.extend(instruction);
+        let pos_new_instruction = self.current_instructions().len();
+        self.scopes[self.scope_index]
+            .instructions
+            .extend(instruction);
+
         pos_new_instruction
     }
 
@@ -254,27 +288,38 @@ impl Compiler {
         self.constants.len() - 1
     }
 
-    fn set_last_instruction(&mut self, op: Op, pos: usize) {
-        self.previous_instruction = self.last_instruction.take();
-        self.last_instruction = Some(EmittedInstruction { op, position: pos });
+    fn set_last_instruction(&mut self, op: Op, position: usize) {
+        if let Some(ins) = &self.scopes[self.scope_index].last_instruction {
+            self.scopes[self.scope_index].previous_instruction = Some(ins.clone());
+        }
+        self.scopes[self.scope_index].last_instruction = Some(EmittedInstruction { op, position });
     }
 
     fn is_last_instruction_pop(&self) -> bool {
-        self.last_instruction
+        self.scopes[self.scope_index]
+            .last_instruction
             .as_ref()
             .filter(|emitted| emitted.op == Op::Pop)
             .is_some()
     }
 
+    fn leave_scope(&mut self) -> Instructions {
+        self.scope_index -= 1;
+
+        self.scopes.pop().unwrap().instructions
+    }
+
     fn remove_last_pop(&mut self) {
-        if let Some(emitted) = &self.last_instruction {
-            self.instructions.truncate(emitted.position);
-            self.last_instruction = self.previous_instruction.take();
+        let current_scope = &mut self.scopes[self.scope_index];
+
+        if let Some(emitted) = &current_scope.last_instruction {
+            current_scope.instructions.truncate(emitted.position);
+            current_scope.last_instruction = current_scope.previous_instruction.take();
         }
     }
 
     fn change_operand(&mut self, op_pos: usize, operand: usize) {
-        if let Some(op) = Op::lookup_op(self.instructions[op_pos]) {
+        if let Some(op) = Op::lookup_op(self.current_instructions()[op_pos]) {
             let new_instruction = make_instruction(op, &[operand]);
             self.replace_instruction(op_pos, new_instruction);
         } else {
@@ -283,8 +328,10 @@ impl Compiler {
     }
 
     fn replace_instruction(&mut self, pos: usize, instruction: Instructions) {
+        let scope = &mut self.scopes[self.scope_index];
+
         for (i, b) in instruction.iter().enumerate() {
-            self.instructions[pos + i] = *b;
+            scope.instructions[pos + i] = *b;
         }
     }
 }
@@ -735,6 +782,58 @@ mod tests {
         ];
 
         run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn compiler_scopes() {
+        let mut compiler = Compiler::new();
+
+        assert_eq!(
+            0, compiler.scope_index,
+            "new compiler's scope index should be 0"
+        );
+
+        compiler.emit(Op::Mul, &[]);
+
+        compiler.enter_scope();
+
+        assert_eq!(
+            1, compiler.scope_index,
+            "compiler's scope index should be 1 after entering a new scope"
+        );
+
+        compiler.emit(Op::Sub, &[]);
+
+        assert_eq!(1, compiler.scopes[compiler.scope_index].instructions.len());
+
+        let last = &compiler.scopes[compiler.scope_index]
+            .last_instruction
+            .as_ref()
+            .unwrap();
+        assert_eq!(Op::Sub, last.op, "last instruction");
+
+        compiler.leave_scope();
+
+        assert_eq!(
+            0, compiler.scope_index,
+            "compiler's scope index should be 0 after leaving a scope"
+        );
+
+        compiler.emit(Op::Add, &[]);
+
+        assert_eq!(2, compiler.scopes[compiler.scope_index].instructions.len());
+
+        let last = &compiler.scopes[compiler.scope_index]
+            .last_instruction
+            .as_ref()
+            .unwrap();
+        assert_eq!(Op::Add, last.op, "last instruction");
+
+        let previous = &compiler.scopes[compiler.scope_index]
+            .previous_instruction
+            .as_ref()
+            .unwrap();
+        assert_eq!(Op::Mul, previous.op, "previous instruction");
     }
 
     fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
