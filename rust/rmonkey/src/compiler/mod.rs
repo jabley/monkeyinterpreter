@@ -89,7 +89,7 @@ impl Compiler {
         Ok(self.bytecode())
     }
 
-    fn bytecode(&self) -> Bytecode {
+    fn bytecode(&mut self) -> Bytecode {
         Bytecode {
             instructions: self.current_instructions().clone(),
             constants: self.constants.clone(),
@@ -265,8 +265,12 @@ impl Compiler {
         Ok(())
     }
 
-    pub fn current_instructions(&self) -> &Instructions {
-        &self.scopes[self.scope_index].instructions
+    pub fn current_instructions(&mut self) -> &mut Instructions {
+        &mut self.current_scope().instructions
+    }
+
+    fn current_scope(&mut self) -> &mut CompilationScope {
+        &mut self.scopes[self.scope_index]
     }
 
     fn emit(&mut self, op: Op, operands: &[usize]) -> usize {
@@ -287,9 +291,7 @@ impl Compiler {
 
     fn add_instruction(&mut self, instruction: Instructions) -> usize {
         let pos_new_instruction = self.current_instructions().len();
-        self.scopes[self.scope_index]
-            .instructions
-            .extend(instruction);
+        self.current_instructions().extend(instruction);
 
         pos_new_instruction
     }
@@ -300,10 +302,10 @@ impl Compiler {
     }
 
     fn replace_last_pop_with_return(&mut self) {
-        if let Some(last) = &self.scopes[self.scope_index].last_instruction {
+        if let Some(last) = &self.current_scope().last_instruction {
             let last_pos = last.position;
             self.replace_instruction(last_pos, make_instruction(Op::ReturnValue, &[]));
-            self.scopes[self.scope_index].last_instruction = Some(EmittedInstruction {
+            self.current_scope().last_instruction = Some(EmittedInstruction {
                 op: Op::ReturnValue,
                 position: last_pos,
             });
@@ -311,14 +313,14 @@ impl Compiler {
     }
 
     fn set_last_instruction(&mut self, op: Op, position: usize) {
-        if let Some(ins) = &self.scopes[self.scope_index].last_instruction {
-            self.scopes[self.scope_index].previous_instruction = Some(ins.clone());
+        if let Some(ins) = &self.current_scope().last_instruction {
+            self.current_scope().previous_instruction = Some(ins.clone());
         }
-        self.scopes[self.scope_index].last_instruction = Some(EmittedInstruction { op, position });
+        self.current_scope().last_instruction = Some(EmittedInstruction { op, position });
     }
 
-    fn is_last_instruction(&self, op: Op) -> bool {
-        self.scopes[self.scope_index]
+    fn is_last_instruction(&mut self, op: Op) -> bool {
+        self.current_scope()
             .last_instruction
             .as_ref()
             .filter(|emitted| emitted.op == op)
@@ -332,7 +334,7 @@ impl Compiler {
     }
 
     fn remove_last_pop(&mut self) {
-        let current_scope = &mut self.scopes[self.scope_index];
+        let current_scope = self.current_scope();
 
         if let Some(emitted) = &current_scope.last_instruction {
             current_scope.instructions.truncate(emitted.position);
@@ -350,10 +352,8 @@ impl Compiler {
     }
 
     fn replace_instruction(&mut self, pos: usize, instruction: Instructions) {
-        let scope = &mut self.scopes[self.scope_index];
-
         for (i, b) in instruction.iter().enumerate() {
-            scope.instructions[pos + i] = *b;
+            self.current_scope().instructions[pos + i] = *b;
         }
     }
 }
