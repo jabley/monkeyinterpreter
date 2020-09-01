@@ -107,6 +107,10 @@ impl Compiler {
                 let symbol = self.symbol_table.define(ident);
                 self.emit(Op::SetGlobal, &[symbol.index]);
             }
+            Statement::Return(Some(exp)) => {
+                self.compile_expression(exp)?;
+                self.emit(Op::ReturnValue, &[]);
+            }
             _ => todo!(),
         }
         Ok(())
@@ -247,6 +251,19 @@ impl Compiler {
                 self.compile_expression(index)?;
 
                 self.emit(Op::Index, &[]);
+
+                Ok(())
+            }
+            Expression::FunctionLiteral(_, body) => {
+                self.enter_scope();
+
+                self.compile_block_statement(body)?;
+
+                let instructions = self.leave_scope();
+
+                let compiled_function = Object::CompiledFunction(instructions);
+                let constant = self.add_constant(compiled_function);
+                self.emit(Op::Constant, &[constant]);
 
                 Ok(())
             }
@@ -836,6 +853,32 @@ mod tests {
         assert_eq!(Op::Mul, previous.op, "previous instruction");
     }
 
+    #[test]
+    fn functions() {
+        let tests = vec![(
+            "fn() { return 5 + 10 }",
+            vec![
+                Object::Integer(5),
+                Object::Integer(10),
+                Object::CompiledFunction(
+                    vec![
+                        make_instruction(Op::Constant, &[0]),
+                        make_instruction(Op::Constant, &[1]),
+                        make_instruction(Op::Add, &[]),
+                        make_instruction(Op::ReturnValue, &[]),
+                    ]
+                    .concat(),
+                ),
+            ],
+            vec![
+                make_instruction(Op::Constant, &[2]),
+                make_instruction(Op::Pop, &[]),
+            ],
+        )];
+
+        run_compiler_tests(tests);
+    }
+
     fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
@@ -876,6 +919,9 @@ mod tests {
                         "wrong constant at {}. expected {} but got {}",
                         i, b, actual_value
                     );
+                }
+                (Object::CompiledFunction(expected_value), Object::CompiledFunction(actual_value)) => {
+                    expect_instructions(vec![expected_value.to_vec()], actual_value.clone());
                 }
                 _ => todo!(
                     "Not implemented assertion for type: {}",
