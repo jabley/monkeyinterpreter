@@ -259,6 +259,10 @@ impl Compiler {
 
                 self.compile_block_statement(body)?;
 
+                if self.is_last_instruction_pop() {
+                    self.replace_last_pop_with_return();
+                }
+
                 let instructions = self.leave_scope();
 
                 let compiled_function = Object::CompiledFunction(instructions);
@@ -303,6 +307,17 @@ impl Compiler {
     fn add_constant(&mut self, obj: Object) -> usize {
         self.constants.push(obj);
         self.constants.len() - 1
+    }
+
+    fn replace_last_pop_with_return(&mut self) {
+        if let Some(last) = &self.scopes[self.scope_index].last_instruction {
+            let last_pos = last.position;
+            self.replace_instruction(last_pos, make_instruction(Op::ReturnValue, &[]));
+            self.scopes[self.scope_index].last_instruction = Some(EmittedInstruction {
+                op: Op::ReturnValue,
+                position: last_pos,
+            });
+        }
     }
 
     fn set_last_instruction(&mut self, op: Op, position: usize) {
@@ -855,26 +870,68 @@ mod tests {
 
     #[test]
     fn functions() {
-        let tests = vec![(
-            "fn() { return 5 + 10 }",
-            vec![
-                Object::Integer(5),
-                Object::Integer(10),
-                Object::CompiledFunction(
-                    vec![
-                        make_instruction(Op::Constant, &[0]),
-                        make_instruction(Op::Constant, &[1]),
-                        make_instruction(Op::Add, &[]),
-                        make_instruction(Op::ReturnValue, &[]),
-                    ]
-                    .concat(),
-                ),
-            ],
-            vec![
-                make_instruction(Op::Constant, &[2]),
-                make_instruction(Op::Pop, &[]),
-            ],
-        )];
+        let tests = vec![
+            (
+                "fn() { return 5 + 10 }",
+                vec![
+                    Object::Integer(5),
+                    Object::Integer(10),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]),
+                            make_instruction(Op::Constant, &[1]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "fn() { 5 + 10 }",
+                vec![
+                    Object::Integer(5),
+                    Object::Integer(10),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]),
+                            make_instruction(Op::Constant, &[1]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "fn() { 1; 2 }",
+                vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]),
+                            make_instruction(Op::Pop, &[]),
+                            make_instruction(Op::Constant, &[1]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
 
         run_compiler_tests(tests);
     }
@@ -920,7 +977,10 @@ mod tests {
                         i, b, actual_value
                     );
                 }
-                (Object::CompiledFunction(expected_value), Object::CompiledFunction(actual_value)) => {
+                (
+                    Object::CompiledFunction(expected_value),
+                    Object::CompiledFunction(actual_value),
+                ) => {
                     expect_instructions(vec![expected_value.to_vec()], actual_value.clone());
                 }
                 _ => todo!(
