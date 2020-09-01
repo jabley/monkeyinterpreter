@@ -95,7 +95,8 @@ byte_enum!(
         SetGlobal,
         GetGlobal,
         Array,
-        Hash
+        Hash,
+        Index
     ]
 );
 
@@ -123,6 +124,7 @@ impl Op {
             Op::GetGlobal => "OpGetGlobal",
             Op::Array => "OpArray",
             Op::Hash => "OpHash",
+            Op::Index => "OpIndex",
         }
     }
 
@@ -148,7 +150,8 @@ impl Op {
             | Op::Minus
             | Op::Bang
             | Op::Pop
-            | Op::Null => vec![],
+            | Op::Null
+            | Op::Index => vec![],
         }
     }
 }

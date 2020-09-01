@@ -222,6 +222,14 @@ impl Compiler {
 
                 Ok(())
             }
+            Expression::IndexExpression(left, index) => {
+                self.compile_expression(left)?;
+                self.compile_expression(index)?;
+
+                self.emit(Op::Index, &[]);
+
+                Ok(())
+            }
             _ => todo!("Not handling expression {} yet", exp),
         }
     }
@@ -673,6 +681,54 @@ mod tests {
                     make_instruction(Op::Constant, &[5]),
                     make_instruction(Op::Mul, &[]),
                     make_instruction(Op::Hash, &[4]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn index_expressions() {
+        let tests = vec![
+            (
+                "[1, 2, 3][1 + 1]",
+                vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(3),
+                    Object::Integer(1),
+                    Object::Integer(1),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Array, &[3]),
+                    make_instruction(Op::Constant, &[3]),
+                    make_instruction(Op::Constant, &[4]),
+                    make_instruction(Op::Add, &[]),
+                    make_instruction(Op::Index, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "{1: 2}[2 - 1]",
+                vec![
+                    Object::Integer(1),
+                    Object::Integer(2),
+                    Object::Integer(2),
+                    Object::Integer(1),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Hash, &[2]),
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Constant, &[3]),
+                    make_instruction(Op::Sub, &[]),
+                    make_instruction(Op::Index, &[]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
