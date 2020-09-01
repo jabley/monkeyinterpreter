@@ -128,9 +128,8 @@ impl Compiler {
             Expression::Identifier(ident) => {
                 if let Some(symbol) = self.symbol_table.resolve(ident) {
                     self.emit(Op::GetGlobal, &[symbol.index]);
-                    Ok(())
                 } else {
-                    Err(CompilerError::UnknownVariable(ident.to_string()))
+                    return Err(CompilerError::UnknownVariable(ident.to_string()));
                 }
             }
             Expression::If(condition, consequence, alternative) => {
@@ -167,8 +166,6 @@ impl Compiler {
 
                 let after_alternative_position = self.current_instructions().len();
                 self.change_operand(jump_position, after_alternative_position);
-
-                Ok(())
             }
             Expression::Infix(operator, left, right) => {
                 if *operator == InfixOperator::Lt {
@@ -194,10 +191,7 @@ impl Compiler {
                     InfixOperator::NotEq => self.emit(Op::NotEqual, &[]),
                     _ => todo!("Unknown operator: {}", operator),
                 };
-
-                Ok(())
             }
-
             Expression::Prefix(operator, expr) => {
                 self.compile_expression(expr)?;
 
@@ -205,14 +199,11 @@ impl Compiler {
                     PrefixOperator::Bang => self.emit(Op::Bang, &[]),
                     PrefixOperator::Minus => self.emit(Op::Minus, &[]),
                 };
-
-                Ok(())
             }
             Expression::IntegerLiteral(v) => {
                 let constant = self.add_constant(Object::Integer(*v));
                 let operands = vec![constant];
                 self.emit(Op::Constant, &operands);
-                Ok(())
             }
             Expression::Boolean(v) => {
                 if *v {
@@ -220,21 +211,17 @@ impl Compiler {
                 } else {
                     self.emit(Op::False, &[]);
                 }
-                Ok(())
             }
             Expression::StringLiteral(s) => {
                 let constant = self.add_constant(Object::String(s.to_string()));
                 let operands = vec![constant];
                 self.emit(Op::Constant, &operands);
-                Ok(())
             }
             Expression::ArrayLiteral(elements) => {
                 for exp in elements {
                     self.compile_expression(exp)?;
                 }
                 self.emit(Op::Array, &[elements.len()]);
-
-                Ok(())
             }
             Expression::HashLiteral(hash) => {
                 for (k, v) in &hash.pairs {
@@ -243,16 +230,12 @@ impl Compiler {
                 }
 
                 self.emit(Op::Hash, &[2 * hash.pairs.len()]);
-
-                Ok(())
             }
             Expression::IndexExpression(left, index) => {
                 self.compile_expression(left)?;
                 self.compile_expression(index)?;
 
                 self.emit(Op::Index, &[]);
-
-                Ok(())
             }
             Expression::FunctionLiteral(_, body) => {
                 self.enter_scope();
@@ -272,11 +255,14 @@ impl Compiler {
                 let compiled_function = Object::CompiledFunction(instructions);
                 let constant = self.add_constant(compiled_function);
                 self.emit(Op::Constant, &[constant]);
-
-                Ok(())
             }
-            _ => todo!("Not handling expression {} yet", exp),
+            Expression::Call(function, _parameters) => {
+                self.compile_expression(function)?;
+                self.emit(Op::Call, &[]);
+            }
         }
+
+        Ok(())
     }
 
     pub fn current_instructions(&self) -> &Instructions {
@@ -952,6 +938,54 @@ mod tests {
                 make_instruction(Op::Pop, &[]),
             ],
         )];
+
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn function_calls() {
+        let tests = vec![
+            (
+                "fn() { 24 }();",
+                vec![
+                    Object::Integer(24),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]), // the literal 24
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[1]), // the compiled function
+                    make_instruction(Op::Call, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "let noArg = fn() { 24 };\
+                 noArg();\
+                 ",
+                vec![
+                    Object::Integer(24),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]), // the literal 24
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[1]), // the compiled function
+                    make_instruction(Op::SetGlobal, &[0]),
+                    make_instruction(Op::GetGlobal, &[0]),
+                    make_instruction(Op::Call, &[]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
 
         run_compiler_tests(tests);
     }
