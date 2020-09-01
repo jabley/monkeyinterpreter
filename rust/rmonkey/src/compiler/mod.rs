@@ -141,7 +141,7 @@ impl Compiler {
 
                 self.compile_block_statement(consequence)?;
 
-                if self.is_last_instruction_pop() {
+                if self.is_last_instruction(Op::Pop) {
                     self.remove_last_pop();
                 }
 
@@ -156,7 +156,7 @@ impl Compiler {
                     Some(body) => {
                         self.compile_block_statement(body)?;
 
-                        if self.is_last_instruction_pop() {
+                        if self.is_last_instruction(Op::Pop) {
                             self.remove_last_pop();
                         }
                     }
@@ -259,8 +259,12 @@ impl Compiler {
 
                 self.compile_block_statement(body)?;
 
-                if self.is_last_instruction_pop() {
+                if self.is_last_instruction(Op::Pop) {
                     self.replace_last_pop_with_return();
+                }
+
+                if !self.is_last_instruction(Op::ReturnValue) {
+                    self.emit(Op::Return, &[]);
                 }
 
                 let instructions = self.leave_scope();
@@ -327,11 +331,11 @@ impl Compiler {
         self.scopes[self.scope_index].last_instruction = Some(EmittedInstruction { op, position });
     }
 
-    fn is_last_instruction_pop(&self) -> bool {
+    fn is_last_instruction(&self, op: Op) -> bool {
         self.scopes[self.scope_index]
             .last_instruction
             .as_ref()
-            .filter(|emitted| emitted.op == Op::Pop)
+            .filter(|emitted| emitted.op == op)
             .is_some()
     }
 
@@ -932,6 +936,22 @@ mod tests {
                 ],
             ),
         ];
+
+        run_compiler_tests(tests);
+    }
+
+    #[test]
+    fn functions_without_return_value() {
+        let tests = vec![(
+            "fn() { }",
+            vec![Object::CompiledFunction(
+                vec![make_instruction(Op::Return, &[])].concat(),
+            )],
+            vec![
+                make_instruction(Op::Constant, &[0]),
+                make_instruction(Op::Pop, &[]),
+            ],
+        )];
 
         run_compiler_tests(tests);
     }
