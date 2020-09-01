@@ -1,8 +1,11 @@
+pub mod frame;
+
 use crate::ast::InfixOperator;
-use crate::code::{Instructions, Op};
+use crate::code::Op;
 use crate::compiler::Bytecode;
 use crate::object::EvalError;
 use crate::object::{HashKey, Object};
+use crate::vm::frame::Frame;
 use byteorder::{BigEndian, ByteOrder};
 use indexmap::IndexMap;
 use std::{error, fmt};
@@ -55,14 +58,18 @@ const STACK_SIZE: usize = 2048;
 /// wide the operands of Op::SetGlobal and Op::GetGlobal are – currently u8[2]
 const GLOBALS_SIZE: usize = 1 << 16;
 
+/// MAX_FRAMES limits how many frames we can execute.
+const MAX_FRAMES: usize = 1024;
+
 /// VM is responsible for executing bytecode. It will do the fetch/decode/execute loop for instructions.
 pub struct VM {
     constants: Vec<Object>,
     pub globals: Vec<Object>,
-    instructions: Instructions,
 
     stack: Vec<Object>,
     sp: usize, // aka stack pointer. Always points to the next value. Top of stack is `stack[sp-1]`
+
+    frames: Vec<Frame>,
 }
 
 pub fn new_globals() -> Vec<Object> {
@@ -77,12 +84,18 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
+        let main_fn = Object::CompiledFunction(bytecode.instructions);
+        let main_frame = Frame::new(main_fn);
+
+        let mut frames = Vec::with_capacity(MAX_FRAMES);
+        frames.push(main_frame);
+
         VM {
             constants: bytecode.constants,
             globals: new_globals(),
-            instructions: bytecode.instructions,
             stack,
             sp: 0,
+            frames,
         }
     }
 
@@ -95,16 +108,15 @@ impl VM {
     }
 
     pub fn run(&mut self) -> Result<Object, VMError> {
-        let mut ip = 0;
-
-        while ip < self.instructions.len() {
-            let op_code = self.instructions[ip];
+        while self.current_frame().ip < self.current_frame().instructions().len() {
+            let ip = self.current_frame().ip;
+            let op_code = self.current_frame().instructions()[ip];
             let op = Op::lookup_op(op_code);
 
             match op {
                 Some(Op::Constant) => {
                     let const_index = self.read_u16(ip + 1);
-                    ip += 2;
+                    self.increment_ip(2);
 
                     self.push(self.constants[const_index].clone())?;
                 }
@@ -123,32 +135,32 @@ impl VM {
                 Some(Op::Minus) => self.execute_minus_operator()?,
                 Some(Op::Jump) => {
                     let pos = self.read_u16(ip + 1);
-                    ip = pos - 1;
+                    self.set_ip(pos - 1);
                 }
                 Some(Op::JumpNotTruthy) => {
                     let pos = self.read_u16(ip + 1);
-                    ip += 2;
+                    self.increment_ip(2);
 
                     let condition = self.pop()?;
 
                     if !condition.is_truthy() {
-                        ip = pos - 1;
+                        self.set_ip(pos - 1);
                     }
                 }
                 Some(Op::Null) => self.push(Object::Null)?,
                 Some(Op::SetGlobal) => {
                     let global_index = self.read_u16(ip + 1);
-                    ip += 2;
+                    self.increment_ip(2);
                     self.globals[global_index] = self.pop()?;
                 }
                 Some(Op::GetGlobal) => {
                     let global_index = self.read_u16(ip + 1);
-                    ip += 2;
+                    self.increment_ip(2);
                     self.push(self.globals[global_index].clone())?;
                 }
                 Some(Op::Array) => {
                     let num_elements = self.read_u16(ip + 1);
-                    ip += 2;
+                    self.increment_ip(2);
 
                     let array = self.build_array(self.sp - num_elements, self.sp)?;
                     self.sp -= num_elements;
@@ -157,7 +169,7 @@ impl VM {
                 }
                 Some(Op::Hash) => {
                     let num_elements = self.read_u16(ip + 1);
-                    ip += 2;
+                    self.increment_ip(2);
 
                     let hash = self.build_hash(self.sp - num_elements, self.sp)?;
                     self.sp -= num_elements;
@@ -172,7 +184,7 @@ impl VM {
                 }
                 _ => todo!("Unhandled op code {}", op_code),
             }
-            ip += 1;
+            self.increment_ip(1);
         }
 
         Ok(self.last_popped_stack_elem())
@@ -202,6 +214,18 @@ impl VM {
         }
 
         Ok(Object::Hash(hash))
+    }
+
+    fn current_frame(&self) -> &Frame {
+        &self.frames.last().unwrap()
+    }
+
+    fn increment_ip(&mut self, diff: usize) {
+        self.frames.last_mut().unwrap().ip += diff;
+    }
+
+    fn set_ip(&mut self, to: usize) {
+        self.frames.last_mut().unwrap().ip = to;
     }
 
     fn execute_array_index(&mut self, elements: &[Object], index: i64) -> Result<(), VMError> {
@@ -339,6 +363,14 @@ impl VM {
         Ok(())
     }
 
+    fn pop_frame(&mut self) -> Frame {
+        self.frames.pop().unwrap()
+    }
+
+    fn push_frame(&mut self, frame: Frame) {
+        self.frames.push(frame);
+    }
+
     fn pop(&mut self) -> Result<Object, VMError> {
         if self.sp == 0 {
             Err(VMError::StackEmpty())
@@ -349,7 +381,7 @@ impl VM {
     }
 
     fn read_u16(&self, index: usize) -> usize {
-        BigEndian::read_u16(&self.instructions[index..index + 2]) as usize
+        BigEndian::read_u16(&self.current_frame().instructions()[index..index + 2]) as usize
     }
 }
 
