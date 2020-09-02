@@ -647,6 +647,18 @@ mod tests {
         run_vm_tests(tests);
     }
 
+    #[test]
+    fn first_class_functions() {
+        let tests = vec![(
+            "let returnsOne = fn() { 1; };\
+             let returnsOneReturner = fn() { returnsOne; };\
+             returnsOneReturner()();",
+            Object::Integer(1),
+        )];
+
+        run_vm_tests(tests);
+    }
+
     fn run_vm_tests(tests: Vec<(&str, Object)>) {
         for (input, expected) in tests {
             match run_vm_test(input, expected) {
