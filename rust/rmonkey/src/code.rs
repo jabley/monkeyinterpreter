@@ -99,7 +99,9 @@ byte_enum!(
         Index,
         Call, // tell the VM to start executing the Object::CompiledFunction sitting on top of the stack
         ReturnValue, // tell the VM to return the value on top of the stack to the calling context and to resume execution there
-        Return // similar to ReturnValue except there is no explicit return value to return but an implicit Object::Null
+        Return, // similar to ReturnValue except there is no explicit return value to return but an implicit Object::Null
+        SetLocal,
+        GetLocal
     ]
 );
 
@@ -131,6 +133,8 @@ impl Op {
             Op::Call => "OpCall",
             Op::ReturnValue => "OpReturnValue",
             Op::Return => "OpReturn",
+            Op::SetLocal => "OpSetLocal",
+            Op::GetLocal => "OpGetLocal",
         }
     }
 
@@ -144,6 +148,9 @@ impl Op {
             | Op::GetGlobal
             | Op::Array // This limits an Array to only contain (1 << 16) -1 = 65535 elements in an array
             | Op::Hash => vec![2],
+            Op::GetLocal // This limits local bindings to only 1 << 8 == 256 per function.
+            | Op::SetLocal
+            => vec![1],
             Op::Add
             | Op::Sub
             | Op::Mul
@@ -176,6 +183,10 @@ fn read_operands(op: &Op, instructions: &[u8]) -> (Vec<usize>, usize) {
                 operands.push(BigEndian::read_u16(&instructions[offset..offset + 2]) as usize);
                 offset += 2;
             }
+            1 => {
+                operands.push(instructions[offset] as usize);
+                offset += 1;
+            }
             _ => panic!("width {} not supported for operand", width),
         }
     }
@@ -191,6 +202,7 @@ pub fn make_instruction(op: Op, operands: &[usize]) -> Vec<u8> {
     for (o, width) in operands.iter().zip(widths) {
         match width {
             2 => instruction.write_u16::<BigEndian>(*o as u16).unwrap(),
+            1 => instruction.write_u8(*o as u8).unwrap(),
             _ => panic!("unsupported operand width {}", width),
         };
     }
@@ -207,6 +219,7 @@ mod tests {
     fn instructions_string() {
         let instructions: Instructions = vec![
             make_instruction(Op::Add, &vec![]),
+            make_instruction(Op::GetLocal, &[1]),
             make_instruction(Op::Constant, &vec![2]),
             make_instruction(Op::Constant, &vec![65535]),
         ]
@@ -214,8 +227,9 @@ mod tests {
 
         assert_eq!(
             "0000 OpAdd\n\
-                    0001 OpConstant 2\n\
-                    0004 OpConstant 65535",
+             0001 OpGetLocal 1\n\
+             0003 OpConstant 2\n\
+             0006 OpConstant 65535",
             instructions.to_string()
         );
     }
@@ -229,6 +243,7 @@ mod tests {
                 vec![Op::Constant as u8, 255u8, 254u8],
             ),
             (Op::Add, vec![], vec![Op::Add as u8]),
+            (Op::GetLocal, vec![255], vec![Op::GetLocal as u8, 255u8]),
         ];
 
         for (op, operands, expected) in tests {
@@ -249,6 +264,19 @@ mod tests {
                     i, b, instruction[i]
                 );
             }
+        }
+    }
+
+    #[test]
+    fn test_read_operands() {
+        let tests = vec![(Op::Constant, vec![65535], 2), (Op::GetLocal, vec![255], 1)];
+
+        for (op, operands, bytes_read) in tests {
+            let instruction = make_instruction(op, &operands);
+
+            let (operands_read, n) = read_operands(&op, &instruction[1..]);
+            assert_eq!(bytes_read, n);
+            assert_eq!(operands, operands_read);
         }
     }
 }
