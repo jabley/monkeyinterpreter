@@ -44,7 +44,13 @@ impl SymbolTable {
     }
 
     pub fn resolve(&self, name: &str) -> Option<Symbol> {
-        self.store.get(&name.to_string()).cloned()
+        match self.store.get(&name.to_string()) {
+            Some(value) => Some(value.clone()),
+            None => match &self.outer {
+                Some(symbol_table) => symbol_table.as_ref().borrow().resolve(name),
+                None => None,
+            },
+        }
     }
 }
 
@@ -169,11 +175,144 @@ mod tests {
         .collect();
 
         for (_, v) in expected {
-            if let Some(actual) = global.resolve(&v.name) {
-                assert_eq!(v, actual)
-            } else {
-                assert!(false, "name {} is not resolvable", v.name)
-            }
+            assert_symbol_is_resolvable(&global, v);
         }
+    }
+
+    #[test]
+    fn resolve_local() {
+        let mut global = SymbolTable::default();
+        global.define("a");
+        global.define("b");
+
+        let mut local = SymbolTable::new_enclosed(global);
+        local.define("c");
+        local.define("d");
+
+        let expected: HashMap<_, _> = vec![
+            (
+                "a",
+                Symbol {
+                    name: "a".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 0,
+                },
+            ),
+            (
+                "b",
+                Symbol {
+                    name: "b".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 1,
+                },
+            ),
+            (
+                "c",
+                Symbol {
+                    name: "c".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 0,
+                },
+            ),
+            (
+                "d",
+                Symbol {
+                    name: "d".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 1,
+                },
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        for (_, v) in expected {
+            assert_symbol_is_resolvable(&local, v);
+        }
+    }
+
+    fn assert_symbol_is_resolvable(symbol_table: &SymbolTable, expected: Symbol) {
+        if let Some(actual) = symbol_table.resolve(&expected.name) {
+            assert_eq!(expected, actual)
+        } else {
+            assert!(false, "name {} is not resolvable", expected.name)
+        }
+    }
+
+    #[test]
+    fn resolve_nested_local() {
+        let check_symbols = |symbol_table: &SymbolTable, expected_symbols: Vec<Symbol>| {
+            for expected in expected_symbols {
+                assert_symbol_is_resolvable(symbol_table, expected);
+            }
+        };
+
+        let mut global = SymbolTable::default();
+        global.define("a");
+        global.define("b");
+
+        let mut first_local = SymbolTable::new_enclosed(global);
+        first_local.define("c");
+        first_local.define("d");
+
+        // slightly cheating here, in asserting against the first_local value before moving on to
+        // the second_local. This makes the borrow-checker happy, but we might have to address this
+        // design later on.
+
+        check_symbols(
+            &first_local,
+            vec![
+                Symbol {
+                    name: "a".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 0,
+                },
+                Symbol {
+                    name: "b".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 1,
+                },
+                Symbol {
+                    name: "c".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 0,
+                },
+                Symbol {
+                    name: "d".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 1,
+                },
+            ],
+        );
+
+        let mut second_local = SymbolTable::new_enclosed(first_local);
+        second_local.define("e");
+        second_local.define("f");
+
+        check_symbols(
+            &second_local,
+            vec![
+                Symbol {
+                    name: "a".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 0,
+                },
+                Symbol {
+                    name: "b".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 1,
+                },
+                Symbol {
+                    name: "c".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 0,
+                },
+                Symbol {
+                    name: "d".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 1,
+                },
+            ],
+        );
     }
 }
