@@ -204,6 +204,12 @@ impl VM {
 
                     self.push(return_value)?;
                 }
+                Some(Op::Return) => {
+                    self.pop_frame();
+                    self.pop()?;
+
+                    self.push(Object::Null)?;
+                }
                 _ => todo!("Unhandled op code {}", op_code),
             }
             self.increment_ip(1);
@@ -615,6 +621,26 @@ mod tests {
                 "let earlyExit = fn() { return 99; return 100; };\
                  earlyExit();",
                 Object::Integer(99),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn functions_without_return_value() {
+        let tests = vec![
+            (
+                "let noReturn = fn() {  };\
+                 noReturn();",
+                Object::Null,
+            ),
+            (
+                "let noReturn = fn() {  };\
+                 let noReturnTwo = fn() { noReturn(); };
+                 noReturn();
+                 noReturnTwo();",
+                Object::Null,
             ),
         ];
 
