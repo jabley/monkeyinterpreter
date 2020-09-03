@@ -8,6 +8,7 @@ use crate::{
     object::Object,
 };
 use std::{error::Error, fmt};
+use symbol_table::SymbolScope;
 pub use symbol_table::SymbolTable;
 
 #[derive(Clone)]
@@ -105,7 +106,10 @@ impl Compiler {
             Statement::Let(ident, exp) => {
                 self.compile_expression(exp)?;
                 let symbol = self.symbol_table.define(ident);
-                self.emit(Op::SetGlobal, &[symbol.index]);
+                match symbol.scope {
+                    SymbolScope::Global => self.emit(Op::SetGlobal, &[symbol.index]),
+                    _ => self.emit(Op::SetLocal, &[symbol.index]),
+                };
             }
             Statement::Return(Some(exp)) => {
                 self.compile_expression(exp)?;
@@ -127,7 +131,10 @@ impl Compiler {
         match exp {
             Expression::Identifier(ident) => {
                 if let Some(symbol) = self.symbol_table.resolve(ident) {
-                    self.emit(Op::GetGlobal, &[symbol.index]);
+                    match symbol.scope {
+                        SymbolScope::Global => self.emit(Op::GetGlobal, &[symbol.index]),
+                        _ => self.emit(Op::GetLocal, &[symbol.index]),
+                    };
                 } else {
                     return Err(CompilerError::UnknownVariable(ident.to_string()));
                 }
@@ -371,7 +378,7 @@ mod tests {
     use super::Compiler;
     use crate::{
         ast::Program,
-        code::{make_instruction, Instructions, Op},
+        code::{make_instruction, Instructions, InstructionsFns, Op},
         lexer::Lexer,
         object::Object,
         parser::Parser,
@@ -1019,6 +1026,80 @@ mod tests {
         run_compiler_tests(tests);
     }
 
+    #[test]
+    fn let_statement_scopes() {
+        let tests = vec![
+            (
+                "let num = 55; fn() { num }",
+                vec![
+                    Object::Integer(55),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetGlobal, &[0]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::SetGlobal, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "fn() { let num = 55; num }",
+                vec![
+                    Object::Integer(55),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]),
+                            make_instruction(Op::SetLocal, &[0]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "fn() { 
+                    let a = 55;
+                    let b = 77;
+                    a + b
+                }",
+                vec![
+                    Object::Integer(55),
+                    Object::Integer(77),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[0]),
+                            make_instruction(Op::SetLocal, &[0]),
+                            make_instruction(Op::Constant, &[1]),
+                            make_instruction(Op::SetLocal, &[1]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::GetLocal, &[1]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
     fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
@@ -1081,8 +1162,8 @@ mod tests {
             expected.len(),
             actual.len(),
             "wrong number of instructions. Expected {} but got {}",
-            expected.len(),
-            actual.len()
+            expected.to_string(),
+            actual.to_string()
         );
 
         for (i, b) in expected.iter().enumerate() {
