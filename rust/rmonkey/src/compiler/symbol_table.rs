@@ -14,16 +14,17 @@ pub struct Symbol {
 }
 
 /// SymbolTable is a https://en.wikipedia.org/wiki/Symbol_table
+#[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     store: HashMap<String, Symbol>,
-    outer: Option<Rc<RefCell<SymbolTable>>>,
+    pub outer: Option<Rc<RefCell<SymbolTable>>>,
 }
 
 impl SymbolTable {
-    pub fn new_enclosed(outer: SymbolTable) -> Self {
+    pub fn new_enclosed(outer: &SymbolTable) -> Self {
         let mut res = Self::default();
 
-        res.outer = Some(Rc::new(RefCell::new(outer)));
+        res.outer = Some(Rc::new(RefCell::new(outer.clone())));
 
         res
     }
@@ -131,7 +132,7 @@ mod tests {
         let b = global.define("b");
         assert_eq!(*expected.get("b").unwrap(), b);
 
-        let mut first_local = SymbolTable::new_enclosed(global);
+        let mut first_local = SymbolTable::new_enclosed(&global);
 
         let c = first_local.define("c");
         assert_eq!(*expected.get("c").unwrap(), c);
@@ -139,7 +140,7 @@ mod tests {
         let d = first_local.define("d");
         assert_eq!(*expected.get("d").unwrap(), d);
 
-        let mut second_local = SymbolTable::new_enclosed(first_local);
+        let mut second_local = SymbolTable::new_enclosed(&first_local);
         let e = second_local.define("e");
         assert_eq!(*expected.get("e").unwrap(), e);
 
@@ -185,7 +186,7 @@ mod tests {
         global.define("a");
         global.define("b");
 
-        let mut local = SymbolTable::new_enclosed(global);
+        let mut local = SymbolTable::new_enclosed(&global);
         local.define("c");
         local.define("d");
 
@@ -251,7 +252,7 @@ mod tests {
         global.define("a");
         global.define("b");
 
-        let mut first_local = SymbolTable::new_enclosed(global);
+        let mut first_local = SymbolTable::new_enclosed(&global);
         first_local.define("c");
         first_local.define("d");
 
@@ -285,7 +286,7 @@ mod tests {
             ],
         );
 
-        let mut second_local = SymbolTable::new_enclosed(first_local);
+        let mut second_local = SymbolTable::new_enclosed(&first_local);
         second_local.define("e");
         second_local.define("f");
 

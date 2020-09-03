@@ -287,6 +287,8 @@ impl Compiler {
 
         self.scopes.push(scope);
         self.scope_index += 1;
+        let symbol_table = &self.symbol_table;
+        self.symbol_table = SymbolTable::new_enclosed(symbol_table);
     }
 
     fn add_instruction(&mut self, instruction: Instructions) -> usize {
@@ -329,7 +331,8 @@ impl Compiler {
 
     fn leave_scope(&mut self) -> Instructions {
         self.scope_index -= 1;
-
+        let outer = self.symbol_table.outer.as_ref().unwrap().borrow().clone();
+        self.symbol_table = outer;
         self.scopes.pop().unwrap().instructions
     }
 
@@ -815,9 +818,16 @@ mod tests {
             "new compiler's scope index should be 0"
         );
 
+        let global_symbol_table = compiler.symbol_table.clone();
+
         compiler.emit(Op::Mul, &[]);
 
         compiler.enter_scope();
+
+        assert_ne!(
+            global_symbol_table, compiler.symbol_table,
+            "SymbolTable has been enclosed"
+        );
 
         assert_eq!(
             1, compiler.scope_index,
@@ -834,12 +844,31 @@ mod tests {
             .unwrap();
         assert_eq!(Op::Sub, last.op, "last instruction");
 
+        assert_eq!(
+            global_symbol_table,
+            compiler
+                .symbol_table
+                .outer
+                .as_ref()
+                .unwrap()
+                .borrow()
+                .clone(),
+            "Compiler did not enclose SymbolTable"
+        );
+
         compiler.leave_scope();
 
         assert_eq!(
             0, compiler.scope_index,
             "compiler's scope index should be 0 after leaving a scope"
         );
+
+        assert_eq!(
+            global_symbol_table, compiler.symbol_table,
+            "Compiler did not restore global symbol table"
+        );
+
+        assert_eq!(None, compiler.symbol_table.outer);
 
         compiler.emit(Op::Add, &[]);
 
