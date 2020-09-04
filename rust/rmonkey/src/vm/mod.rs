@@ -681,12 +681,22 @@ mod tests {
 
     #[test]
     fn first_class_functions() {
-        let tests = vec![(
-            "let returnsOne = fn() { 1; };\
+        let tests = vec![
+            (
+                "let returnsOne = fn() { 1; };\
              let returnsOneReturner = fn() { returnsOne; };\
              returnsOneReturner()();",
-            Object::Integer(1),
-        )];
+                Object::Integer(1),
+            ),
+            (
+                "let returnsOneReturner = fn() {\
+                    let returnsOne = fn() { 1; };\
+                    returnsOne;\
+                };\
+                returnsOneReturner()();",
+                Object::Integer(1),
+            ),
+        ];
 
         run_vm_tests(tests);
     }
