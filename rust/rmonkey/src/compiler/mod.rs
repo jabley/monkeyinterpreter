@@ -266,7 +266,7 @@ impl Compiler {
             }
             Expression::Call(function, _parameters) => {
                 self.compile_expression(function)?;
-                self.emit(Op::Call, &[]);
+                self.emit(Op::Call, &[0]);
             }
         }
 
@@ -1001,7 +1001,7 @@ mod tests {
                 ],
                 vec![
                     make_instruction(Op::Constant, &[1]), // the compiled function
-                    make_instruction(Op::Call, &[]),
+                    make_instruction(Op::Call, &[0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -1024,7 +1024,7 @@ mod tests {
                     make_instruction(Op::Constant, &[1]), // the compiled function
                     make_instruction(Op::SetGlobal, &[0]),
                     make_instruction(Op::GetGlobal, &[0]),
-                    make_instruction(Op::Call, &[]),
+                    make_instruction(Op::Call, &[0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),

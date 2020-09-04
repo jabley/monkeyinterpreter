@@ -186,6 +186,8 @@ impl VM {
                     self.execute_index_expression(left, index)?;
                 }
                 Some(Op::Call) => {
+                    self.increment_ip(1);
+
                     // In both arms, we are cloning the object on the stack. So just clone it once and use it.
                     let context_object = self.stack[self.sp - 1].clone();
 

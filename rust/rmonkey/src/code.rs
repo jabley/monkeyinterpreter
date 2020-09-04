@@ -150,6 +150,7 @@ impl Op {
             | Op::Hash => vec![2],
             Op::GetLocal // This limits local bindings to only 1 << 8 == 256 per function.
             | Op::SetLocal
+            | Op::Call
             => vec![1],
             Op::Add
             | Op::Sub
@@ -165,7 +166,6 @@ impl Op {
             | Op::Pop
             | Op::Null
             | Op::Index
-            | Op::Call
             | Op::ReturnValue
             | Op::Return => vec![],
         }
