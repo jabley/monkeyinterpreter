@@ -7,18 +7,23 @@ use crate::object::Object;
 pub struct Frame {
     func: Object,
     pub ip: usize,
+    pub base_pointer: usize,
 }
 
 impl Frame {
-    pub fn new(func: Object) -> Self {
+    pub fn new(func: Object, base_pointer: usize) -> Self {
         match func {
-            Object::CompiledFunction(_) => Frame { func, ip: 0 },
+            Object::CompiledFunction(_, _) => Frame {
+                func,
+                ip: 0,
+                base_pointer,
+            },
             _ => panic!("Object not supported {}", func.type_name()),
         }
     }
 
     pub fn instructions(&self) -> Instructions {
-        if let Object::CompiledFunction(instructions) = &self.func {
+        if let Object::CompiledFunction(instructions, _) = &self.func {
             instructions.clone()
         } else {
             panic!("Instructions not supported {}", self.func.type_name());

@@ -53,6 +53,10 @@ impl SymbolTable {
             },
         }
     }
+
+    pub fn num_definitions(&self) -> usize {
+        self.store.len()
+    }
 }
 
 impl Default for SymbolTable {

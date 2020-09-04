@@ -257,9 +257,10 @@ impl Compiler {
                     self.emit(Op::Return, &[]);
                 }
 
+                let num_locals = self.symbol_table.num_definitions();
                 let instructions = self.leave_scope();
 
-                let compiled_function = Object::CompiledFunction(instructions);
+                let compiled_function = Object::CompiledFunction(instructions, num_locals);
                 let constant = self.add_constant(compiled_function);
                 self.emit(Op::Constant, &[constant]);
             }
@@ -910,6 +911,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        0,
                     ),
                 ],
                 vec![
@@ -930,6 +932,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        0,
                     ),
                 ],
                 vec![
@@ -950,6 +953,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        0,
                     ),
                 ],
                 vec![
@@ -968,6 +972,7 @@ mod tests {
             "fn() { }",
             vec![Object::CompiledFunction(
                 vec![make_instruction(Op::Return, &[])].concat(),
+                0,
             )],
             vec![
                 make_instruction(Op::Constant, &[0]),
@@ -991,6 +996,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        0,
                     ),
                 ],
                 vec![
@@ -1011,6 +1017,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        0,
                     ),
                 ],
                 vec![
@@ -1039,6 +1046,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        0,
                     ),
                 ],
                 vec![
@@ -1060,6 +1068,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        1,
                     ),
                 ],
                 vec![
@@ -1088,6 +1097,7 @@ mod tests {
                             make_instruction(Op::ReturnValue, &[]),
                         ]
                         .concat(),
+                        2,
                     ),
                 ],
                 vec![
@@ -1142,9 +1152,10 @@ mod tests {
                     );
                 }
                 (
-                    Object::CompiledFunction(expected_value),
-                    Object::CompiledFunction(actual_value),
+                    Object::CompiledFunction(expected_value, expected_locals),
+                    Object::CompiledFunction(actual_value, actual_locals),
                 ) => {
+                    assert_eq!(expected_locals, actual_locals, "number of locals matches");
                     expect_instructions(vec![expected_value.to_vec()], actual_value.clone());
                 }
                 _ => todo!(

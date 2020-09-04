@@ -12,7 +12,7 @@ pub enum Object {
     Null,
     Integer(i64),
     Boolean(bool),
-    CompiledFunction(Instructions),
+    CompiledFunction(Instructions, usize),
     Return(Box<Object>),
     Function(Vec<String>, BlockStatement, Environment),
     String(String),
@@ -27,7 +27,10 @@ impl Hash for Object {
             Object::Null => 37.hash(state),
             Object::Integer(i) => i.hash(state),
             Object::Boolean(b) => b.hash(state),
-            Object::CompiledFunction(bytes) => bytes.hash(state),
+            Object::CompiledFunction(bytes, num_locals) => {
+                bytes.hash(state);
+                num_locals.hash(state);
+            }
             Object::Return(o) => {
                 19.hash(state);
                 o.hash(state);
@@ -86,7 +89,7 @@ impl fmt::Display for Object {
             Object::Null => write!(f, "null"),
             Object::Integer(v) => write!(f, "{}", v),
             Object::Boolean(b) => write!(f, "{}", b),
-            Object::CompiledFunction(bytes) => write!(f, "{}", bytes.to_string()),
+            Object::CompiledFunction(bytes, _num_locals) => write!(f, "{}", bytes.to_string()),
             Object::Return(obj) => write!(f, "{}", obj),
             Object::Function(parameters, body, _) => {
                 write!(f, "fn({}) {{\n{}\n}}", parameters.join(", "), body)
@@ -126,7 +129,7 @@ impl Object {
     pub fn type_name(&self) -> &str {
         match self {
             Object::Boolean(_) => "BOOLEAN",
-            Object::CompiledFunction(_) => "COMPILED_FUNCTION",
+            Object::CompiledFunction(_, _) => "COMPILED_FUNCTION",
             Object::Integer(_) => "INTEGER",
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",

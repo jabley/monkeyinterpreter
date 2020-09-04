@@ -87,8 +87,8 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
-        let main_fn = Object::CompiledFunction(bytecode.instructions);
-        let main_frame = Frame::new(main_fn);
+        let main_fn = Object::CompiledFunction(bytecode.instructions.clone(), 0);
+        let main_frame = Frame::new(main_fn, 0);
 
         let mut frames = Vec::with_capacity(MAX_FRAMES);
         frames.push(main_frame);
@@ -185,31 +185,60 @@ impl VM {
 
                     self.execute_index_expression(left, index)?;
                 }
-                Some(Op::Call) => match &self.stack[self.sp - 1] {
-                    func @ Object::CompiledFunction(_) => {
-                        let frame = Frame::new(func.clone());
-                        self.push_frame(frame);
-                        continue; // we don't want to increment the new current_frame ip
+                Some(Op::Call) => {
+                    // In both arms, we are cloning the object on the stack. So just clone it once and use it.
+                    let context_object = self.stack[self.sp - 1].clone();
+
+                    match context_object {
+                        Object::CompiledFunction(instructions, num_locals) => {
+                            let frame = Frame::new(
+                                Object::CompiledFunction(instructions, num_locals),
+                                self.sp,
+                            );
+                            self.push_frame(frame);
+                            self.sp += num_locals;
+                            continue; // we don't want to increment the new current_frame ip
+                        }
+                        _ => {
+                            return Err(VMError::CallingNonFunction(context_object));
+                        }
                     }
-                    other => {
-                        return Err(VMError::CallingNonFunction(other.clone()));
-                    }
-                },
+                }
                 Some(Op::ReturnValue) => {
                     let return_value = self.pop()?;
 
-                    self.pop_frame();
-                    self.pop()?;
+                    // Pop the frame and update the stack pointer. The additional 1 means that we don't
+                    // need to pop the object.CompiledFunction too – just move the stack pointer.
+                    let frame = self.pop_frame();
+                    self.sp = frame.base_pointer - 1;
 
                     self.push(return_value)?;
                 }
                 Some(Op::Return) => {
-                    self.pop_frame();
-                    self.pop()?;
+                    // Pop the frame and update the stack pointer. The additional 1 means that we don't
+                    // need to pop the object.CompiledFunction too – just move the stack pointer.
+                    let frame = self.pop_frame();
+                    self.sp = frame.base_pointer - 1;
 
                     self.push(Object::Null)?;
                 }
-                _ => todo!("Unhandled op code {}", op_code),
+                Some(Op::SetLocal) => {
+                    let local_index = self.read_u8(ip + 1);
+                    self.increment_ip(1);
+
+                    let base_pointer = self.current_frame().base_pointer;
+
+                    let obj = self.pop()?;
+                    self.stack[base_pointer + local_index] = obj;
+                }
+                Some(Op::GetLocal) => {
+                    let local_index = self.read_u8(ip + 1);
+                    self.increment_ip(1);
+
+                    let base_pointer = self.current_frame().base_pointer;
+                    self.push(self.stack[base_pointer + local_index].clone())?;
+                }
+                _ => todo!("Unhandled op code {} – {:?}", op_code, op),
             }
             self.increment_ip(1);
         }
@@ -409,6 +438,10 @@ impl VM {
 
     fn read_u16(&self, index: usize) -> usize {
         code::read_u16(&self.current_frame().instructions(), index)
+    }
+
+    fn read_u8(&self, index: usize) -> usize {
+        code::read_u8(&self.current_frame().instructions(), index)
     }
 }
 
@@ -654,6 +687,70 @@ mod tests {
              returnsOneReturner()();",
             Object::Integer(1),
         )];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn calling_functions_with_bindings() {
+        let tests = vec![
+            (
+                "let one = fn() {\
+                    let one = 1;\
+                    one\
+                };\
+                one();",
+                Object::Integer(1),
+            ),
+            (
+                "let oneAndTwo = fn() {
+                    let one = 1;
+                    let two = 2;
+                    one + two;
+                };
+                oneAndTwo();",
+                Object::Integer(3),
+            ),
+            (
+                "let oneAndTwo = fn() {
+                    let one = 1;
+                    let two = 2;
+                    one + two;
+                };
+                let threeAndFour = fn() {
+                    let three = 3;
+                    let four = 4;
+                    three + four;
+                };
+                oneAndTwo() + threeAndFour();",
+                Object::Integer(10),
+            ),
+            (
+                "let firstFoobar = fn() {
+                    let foobar = 50;
+                    foobar;
+                };
+                let secondFoobar = fn() {
+                    let foobar = 100;
+                    foobar;
+                };
+                firstFoobar() + secondFoobar();",
+                Object::Integer(150),
+            ),
+            (
+                "let globalSeed = 50;
+                let minusOne = fn() {
+                    let num = 1;
+                    globalSeed - num;
+                }
+                let minusTwo = fn() {
+                    let num = 2;
+                    globalSeed - num;
+                }
+                minusOne() + minusTwo();",
+                Object::Integer(97),
+            ),
+        ];
 
         run_vm_tests(tests);
     }
