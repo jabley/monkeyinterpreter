@@ -264,9 +264,14 @@ impl Compiler {
                 let constant = self.add_constant(compiled_function);
                 self.emit(Op::Constant, &[constant]);
             }
-            Expression::Call(function, _parameters) => {
+            Expression::Call(function, parameters) => {
                 self.compile_expression(function)?;
-                self.emit(Op::Call, &[0]);
+
+                for arg in parameters {
+                    self.compile_expression(arg)?;
+                }
+
+                self.emit(Op::Call, &[parameters.len()]);
             }
         }
 
@@ -1025,6 +1030,44 @@ mod tests {
                     make_instruction(Op::SetGlobal, &[0]),
                     make_instruction(Op::GetGlobal, &[0]),
                     make_instruction(Op::Call, &[0]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "let oneArg = fn(a) { };\
+                 oneArg(24);\
+                 ",
+                vec![
+                    Object::CompiledFunction(vec![make_instruction(Op::Return, &[])].concat(), 0),
+                    Object::Integer(24),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::SetGlobal, &[0]),
+                    make_instruction(Op::GetGlobal, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Call, &[1]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "let manyArg = fn(a, b, c) { };\
+                 manyArg(24, 25, 26);\
+                 ",
+                vec![
+                    Object::CompiledFunction(vec![make_instruction(Op::Return, &[])].concat(), 0),
+                    Object::Integer(24),
+                    Object::Integer(25),
+                    Object::Integer(26),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::SetGlobal, &[0]),
+                    make_instruction(Op::GetGlobal, &[0]),
+                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Constant, &[3]),
+                    make_instruction(Op::Call, &[3]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
