@@ -186,25 +186,11 @@ impl VM {
                     self.execute_index_expression(left, index)?;
                 }
                 Some(Op::Call) => {
+                    let num_args = self.read_u8(ip + 1);
                     self.increment_ip(1);
 
-                    // In both arms, we are cloning the object on the stack. So just clone it once and use it.
-                    let context_object = self.stack[self.sp - 1].clone();
-
-                    match context_object {
-                        Object::CompiledFunction(instructions, num_locals) => {
-                            let frame = Frame::new(
-                                Object::CompiledFunction(instructions, num_locals),
-                                self.sp,
-                            );
-                            self.push_frame(frame);
-                            self.sp += num_locals;
-                            continue; // we don't want to increment the new current_frame ip
-                        }
-                        _ => {
-                            return Err(VMError::CallingNonFunction(context_object));
-                        }
-                    }
+                    self.call_function(num_args)?;
+                    continue; // we don't want to increment the new current_frame ip
                 }
                 Some(Op::ReturnValue) => {
                     let return_value = self.pop()?;
@@ -272,6 +258,24 @@ impl VM {
         }
 
         Ok(Object::Hash(hash))
+    }
+
+    fn call_function(&mut self, num_args: usize) -> Result<(), VMError> {
+        // In both arms, we are cloning the object on the stack. So just clone it once and use it.
+        let context_object = self.stack[self.sp - 1 - num_args].clone();
+
+        match context_object {
+            Object::CompiledFunction(instructions, num_locals) => {
+                let frame = Frame::new(
+                    Object::CompiledFunction(instructions, num_locals),
+                    self.sp - num_args,
+                );
+                self.push_frame(frame);
+                self.sp += num_locals;
+                Ok(())
+            }
+            _ => Err(VMError::CallingNonFunction(context_object)),
+        }
     }
 
     fn current_frame(&self) -> &Frame {
@@ -761,6 +765,58 @@ mod tests {
                 }
                 minusOne() + minusTwo();",
                 Object::Integer(97),
+            ),
+        ];
+
+        run_vm_tests(tests);
+    }
+
+    #[test]
+    fn calling_functions_with_arguments_and_bindings() {
+        let tests = vec![
+            (
+                "let identity = fn(a) { a; };\
+                 identity(4);",
+                Object::Integer(4),
+            ),
+            (
+                "let sum = fn(a, b) { a + b; };\
+                 sum(1, 2)",
+                Object::Integer(3),
+            ),
+            (
+                "let sum = fn(a, b) {\
+                    let c = a + b;\
+                    c;\
+                 };\
+                 sum(1, 2);",
+                Object::Integer(3),
+            ),
+            (
+                "let sum = fn(a, b) {\
+                    let c = a + b;\
+                    c;\
+                 };\
+                 let outer = fn() {\
+                    sum(1, 2) + sum(3, 4);\
+                 };\
+                 outer();",
+                Object::Integer(10),
+            ),
+            (
+                "let globalNum = 10;\
+                 \
+                 let sum = fn(a, b) {\
+                    let c = a + b;\
+                    c + globalNum;\
+                 };\
+                 \
+                 let outer = fn() {\
+                    sum(1, 2) + sum(3, 4) + globalNum;\
+                 };\
+                 \
+                 outer() + globalNum;",
+                Object::Integer(50),
             ),
         ];
 
