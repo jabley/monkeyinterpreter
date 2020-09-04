@@ -244,8 +244,12 @@ impl Compiler {
 
                 self.emit(Op::Index, &[]);
             }
-            Expression::FunctionLiteral(_, body) => {
+            Expression::FunctionLiteral(parameters, body) => {
                 self.enter_scope();
+
+                for parameter in parameters {
+                    self.symbol_table.define(parameter);
+                }
 
                 self.compile_block_statement(body)?;
 
@@ -1034,11 +1038,18 @@ mod tests {
                 ],
             ),
             (
-                "let oneArg = fn(a) { };\
+                "let oneArg = fn(a) { a };\
                  oneArg(24);\
                  ",
                 vec![
-                    Object::CompiledFunction(vec![make_instruction(Op::Return, &[])].concat(), 0),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                    ),
                     Object::Integer(24),
                 ],
                 vec![
@@ -1051,11 +1062,22 @@ mod tests {
                 ],
             ),
             (
-                "let manyArg = fn(a, b, c) { };\
+                "let manyArg = fn(a, b, c) { a; b; c };\
                  manyArg(24, 25, 26);\
                  ",
                 vec![
-                    Object::CompiledFunction(vec![make_instruction(Op::Return, &[])].concat(), 0),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Pop, &[]),
+                            make_instruction(Op::GetLocal, &[1]),
+                            make_instruction(Op::Pop, &[]),
+                            make_instruction(Op::GetLocal, &[2]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        3,
+                    ),
                     Object::Integer(24),
                     Object::Integer(25),
                     Object::Integer(26),
