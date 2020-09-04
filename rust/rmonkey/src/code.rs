@@ -180,11 +180,11 @@ fn read_operands(op: &Op, instructions: &[u8]) -> (Vec<usize>, usize) {
     for width in widths {
         match width {
             2 => {
-                operands.push(BigEndian::read_u16(&instructions[offset..offset + 2]) as usize);
+                operands.push(read_u16(instructions, offset));
                 offset += 2;
             }
             1 => {
-                operands.push(instructions[offset] as usize);
+                operands.push(read_u8(instructions, offset));
                 offset += 1;
             }
             _ => panic!("width {} not supported for operand", width),
@@ -208,6 +208,14 @@ pub fn make_instruction(op: Op, operands: &[usize]) -> Vec<u8> {
     }
 
     instruction
+}
+
+pub fn read_u16(instructions: &[u8], start: usize) -> usize {
+    BigEndian::read_u16(&instructions[start..start + 2]) as usize
+}
+
+pub fn read_u8(instructions: &[u8], start: usize) -> usize {
+    instructions[start] as usize
 }
 
 #[cfg(test)]
@@ -275,8 +283,8 @@ mod tests {
             let instruction = make_instruction(op, &operands);
 
             let (operands_read, n) = read_operands(&op, &instruction[1..]);
-            assert_eq!(bytes_read, n);
-            assert_eq!(operands, operands_read);
+            assert_eq!(bytes_read, n, "number of bytes read");
+            assert_eq!(operands, operands_read, "operand bytes read");
         }
     }
 }

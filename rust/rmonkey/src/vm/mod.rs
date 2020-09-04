@@ -1,12 +1,11 @@
 pub mod frame;
 
 use crate::ast::InfixOperator;
-use crate::code::Op;
+use crate::code::{self, Op};
 use crate::compiler::Bytecode;
 use crate::object::EvalError;
 use crate::object::{HashKey, Object};
 use crate::vm::frame::Frame;
-use byteorder::{BigEndian, ByteOrder};
 use indexmap::IndexMap;
 use std::{error, fmt};
 
@@ -409,7 +408,7 @@ impl VM {
     }
 
     fn read_u16(&self, index: usize) -> usize {
-        BigEndian::read_u16(&self.current_frame().instructions()[index..index + 2]) as usize
+        code::read_u16(&self.current_frame().instructions(), index)
     }
 }
 
