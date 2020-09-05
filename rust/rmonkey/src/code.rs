@@ -101,7 +101,8 @@ byte_enum!(
         ReturnValue, // tell the VM to return the value on top of the stack to the calling context and to resume execution there
         Return, // similar to ReturnValue except there is no explicit return value to return but an implicit Object::Null
         SetLocal,
-        GetLocal
+        GetLocal,
+        GetBuiltIn
     ]
 );
 
@@ -135,6 +136,7 @@ impl Op {
             Op::Return => "OpReturn",
             Op::SetLocal => "OpSetLocal",
             Op::GetLocal => "OpGetLocal",
+            Op::GetBuiltIn => "OpGetBuiltIn",
         }
     }
 
@@ -151,6 +153,7 @@ impl Op {
             Op::GetLocal // This limits local bindings to only 1 << 8 == 256 per function.
             | Op::SetLocal
             | Op::Call
+            | Op::GetBuiltIn
             => vec![1],
             Op::Add
             | Op::Sub
