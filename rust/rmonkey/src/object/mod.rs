@@ -12,7 +12,7 @@ pub enum Object {
     Null,
     Integer(i64),
     Boolean(bool),
-    CompiledFunction(Instructions, usize),
+    CompiledFunction(Instructions, usize, usize),
     Return(Box<Object>),
     Function(Vec<String>, BlockStatement, Environment),
     String(String),
@@ -27,9 +27,10 @@ impl Hash for Object {
             Object::Null => 37.hash(state),
             Object::Integer(i) => i.hash(state),
             Object::Boolean(b) => b.hash(state),
-            Object::CompiledFunction(bytes, num_locals) => {
+            Object::CompiledFunction(bytes, num_locals, num_parameters) => {
                 bytes.hash(state);
                 num_locals.hash(state);
+                num_parameters.hash(state);
             }
             Object::Return(o) => {
                 19.hash(state);
@@ -89,7 +90,9 @@ impl fmt::Display for Object {
             Object::Null => write!(f, "null"),
             Object::Integer(v) => write!(f, "{}", v),
             Object::Boolean(b) => write!(f, "{}", b),
-            Object::CompiledFunction(bytes, _num_locals) => write!(f, "{}", bytes.to_string()),
+            Object::CompiledFunction(bytes, _num_locals, _num_parameters) => {
+                write!(f, "{}", bytes.to_string())
+            }
             Object::Return(obj) => write!(f, "{}", obj),
             Object::Function(parameters, body, _) => {
                 write!(f, "fn({}) {{\n{}\n}}", parameters.join(", "), body)
@@ -129,7 +132,7 @@ impl Object {
     pub fn type_name(&self) -> &str {
         match self {
             Object::Boolean(_) => "BOOLEAN",
-            Object::CompiledFunction(_, _) => "COMPILED_FUNCTION",
+            Object::CompiledFunction(_, _, _) => "COMPILED_FUNCTION",
             Object::Integer(_) => "INTEGER",
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",
@@ -173,7 +176,7 @@ impl HashKey {
 pub type EvalResult = std::result::Result<Object, EvalError>;
 pub type BuiltIn = fn(Vec<Object>) -> EvalResult;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum EvalError {
     IdentifierNotFound(String),
     NotCallable(Object),

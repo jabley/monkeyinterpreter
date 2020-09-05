@@ -13,7 +13,7 @@ pub struct Frame {
 impl Frame {
     pub fn new(func: Object, base_pointer: usize) -> Self {
         match func {
-            Object::CompiledFunction(_, _) => Frame {
+            Object::CompiledFunction(_, _, _) => Frame {
                 func,
                 ip: 0,
                 base_pointer,
@@ -23,7 +23,7 @@ impl Frame {
     }
 
     pub fn instructions(&self) -> Instructions {
-        if let Object::CompiledFunction(instructions, _) = &self.func {
+        if let Object::CompiledFunction(instructions, _, _) = &self.func {
             instructions.clone()
         } else {
             panic!("Instructions not supported {}", self.func.type_name());

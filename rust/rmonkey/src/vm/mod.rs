@@ -9,7 +9,7 @@ use crate::vm::frame::Frame;
 use indexmap::IndexMap;
 use std::{error, fmt};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum VMError {
     CallingNonFunction(Object),
     Eval(EvalError),
@@ -19,6 +19,7 @@ pub enum VMError {
     TypeMismatch(InfixOperator, Object, Object),
     UnknownOperation(Op),
     UnsupportedNegationType(Object),
+    WrongArity(usize, usize),
 }
 
 impl fmt::Display for VMError {
@@ -43,6 +44,9 @@ impl fmt::Display for VMError {
             }
             VMError::CallingNonFunction(obj) => {
                 write!(f, "Calling non-function: {}", obj.type_name())
+            }
+            VMError::WrongArity(want, got) => {
+                write!(f, "wrong number of arguments: want={}, got={}", want, got)
             }
         }
     }
@@ -87,7 +91,7 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
-        let main_fn = Object::CompiledFunction(bytecode.instructions.clone(), 0);
+        let main_fn = Object::CompiledFunction(bytecode.instructions.clone(), 0, 0);
         let main_frame = Frame::new(main_fn, 0);
 
         let mut frames = Vec::with_capacity(MAX_FRAMES);
@@ -265,9 +269,12 @@ impl VM {
         let context_object = self.stack[self.sp - 1 - num_args].clone();
 
         match context_object {
-            Object::CompiledFunction(instructions, num_locals) => {
+            Object::CompiledFunction(instructions, num_locals, num_parameters) => {
+                if num_parameters != num_args {
+                    return Err(VMError::WrongArity(num_parameters, num_args));
+                }
                 let frame = Frame::new(
-                    Object::CompiledFunction(instructions, num_locals),
+                    Object::CompiledFunction(instructions, num_locals, num_parameters),
                     self.sp - num_args,
                 );
                 self.push_frame(frame);
@@ -821,6 +828,31 @@ mod tests {
         ];
 
         run_vm_tests(tests);
+    }
+
+    #[test]
+    fn calling_functions_with_wrong_arguments() {
+        let tests = vec![
+            ("fn() { 1; }(1);", VMError::WrongArity(0, 1)),
+            ("fn(a) { a; }();", VMError::WrongArity(1, 0)),
+            ("fn(a, b) { a + b; }(1);", VMError::WrongArity(2, 1)),
+        ];
+
+        for (input, expected) in tests {
+            let program = parse(input);
+            let mut compiler = Compiler::new();
+            match compiler.compile(&program) {
+                Ok(bytecode) => {
+                    let mut vm = VM::new(bytecode);
+
+                    match vm.run() {
+                        Ok(_) => assert!(false, "expected failure"),
+                        Err(actual) => assert_eq!(expected, actual),
+                    }
+                }
+                Err(e) => assert!(false, "compiler error: {}", e),
+            }
+        }
     }
 
     fn run_vm_tests(tests: Vec<(&str, Object)>) {
