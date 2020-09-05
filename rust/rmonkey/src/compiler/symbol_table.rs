@@ -4,6 +4,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 pub enum SymbolScope {
     Global,
     Local,
+    BuiltIn,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -37,6 +38,18 @@ impl SymbolTable {
                 None => SymbolScope::Global,
             },
             index: self.store.len(),
+        };
+
+        self.store.insert(name.to_string(), s.clone());
+
+        s
+    }
+
+    pub fn define_builtin(&mut self, index: usize, name: &str) -> Symbol {
+        let s = Symbol {
+            name: name.to_owned(),
+            scope: SymbolScope::BuiltIn,
+            index,
         };
 
         self.store.insert(name.to_string(), s.clone());
@@ -319,5 +332,53 @@ mod tests {
                 },
             ],
         );
+    }
+
+    #[test]
+    fn define_resolve_builtins() {
+        let mut global = SymbolTable::default();
+
+        let expected = vec![
+            Symbol {
+                name: "a".to_owned(),
+                scope: SymbolScope::BuiltIn,
+                index: 0,
+            },
+            Symbol {
+                name: "c".to_owned(),
+                scope: SymbolScope::BuiltIn,
+                index: 1,
+            },
+            Symbol {
+                name: "e".to_owned(),
+                scope: SymbolScope::BuiltIn,
+                index: 2,
+            },
+            Symbol {
+                name: "f".to_owned(),
+                scope: SymbolScope::BuiltIn,
+                index: 3,
+            },
+        ];
+
+        for s in &expected {
+            global.define_builtin(s.index, &s.name);
+        }
+
+        let assert_builtins = |symbol_table: SymbolTable, expected: &Vec<Symbol>| {
+            for s in expected {
+                assert_symbol_is_resolvable(&symbol_table, s.clone());
+            }
+        };
+
+        assert_builtins(global.clone(), &expected);
+
+        let first_local = SymbolTable::new_enclosed(&global);
+
+        assert_builtins(first_local.clone(), &expected);
+
+        let second_local = SymbolTable::new_enclosed(&first_local);
+
+        assert_builtins(second_local.clone(), &expected);
     }
 }
