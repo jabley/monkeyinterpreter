@@ -1,5 +1,40 @@
 use super::{assert_argument_count, EvalError, EvalResult, Object};
 
+#[derive(PartialEq, Debug)]
+pub struct BuiltIn {
+    pub name: &'static str,
+    builtin: Object,
+}
+
+/// BUILTINS provides a stable iteration order so that we can define index-based lookups in
+/// bytecode to built-in functions. We retain the Go-implementation ordering.
+pub const BUILTINS: &[BuiltIn] = &[
+    BuiltIn {
+        name: "len",
+        builtin: Object::BuiltIn(len),
+    },
+    BuiltIn {
+        name: "puts",
+        builtin: Object::BuiltIn(puts),
+    },
+    BuiltIn {
+        name: "first",
+        builtin: Object::BuiltIn(first),
+    },
+    BuiltIn {
+        name: "last",
+        builtin: Object::BuiltIn(last),
+    },
+    BuiltIn {
+        name: "rest",
+        builtin: Object::BuiltIn(rest),
+    },
+    BuiltIn {
+        name: "push",
+        builtin: Object::BuiltIn(push),
+    },
+];
+
 pub fn lookup(name: &str) -> Option<Object> {
     match name {
         "len" => Some(Object::BuiltIn(len)),

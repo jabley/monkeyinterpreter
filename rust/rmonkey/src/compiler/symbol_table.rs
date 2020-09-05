@@ -18,6 +18,7 @@ pub struct Symbol {
 #[derive(Clone, Debug, PartialEq)]
 pub struct SymbolTable {
     store: HashMap<String, Symbol>,
+    num_definitions: usize,
     pub outer: Option<Rc<RefCell<SymbolTable>>>,
 }
 
@@ -37,10 +38,11 @@ impl SymbolTable {
                 Some(_) => SymbolScope::Local,
                 None => SymbolScope::Global,
             },
-            index: self.store.len(),
+            index: self.num_definitions,
         };
 
         self.store.insert(name.to_string(), s.clone());
+        self.num_definitions += 1;
 
         s
     }
@@ -68,7 +70,7 @@ impl SymbolTable {
     }
 
     pub fn num_definitions(&self) -> usize {
-        self.store.len()
+        self.num_definitions
     }
 }
 
@@ -76,6 +78,7 @@ impl Default for SymbolTable {
     fn default() -> Self {
         SymbolTable {
             store: Default::default(),
+            num_definitions: 0,
             outer: None,
         }
     }

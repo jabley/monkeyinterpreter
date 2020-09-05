@@ -5,11 +5,12 @@ use crate::ast::Statement;
 use crate::{
     ast::{BlockStatement, InfixOperator, PrefixOperator, Program},
     code::{make_instruction, Instructions, Op},
+    object::builtins,
     object::Object,
 };
 use std::{error::Error, fmt};
-use symbol_table::SymbolScope;
 pub use symbol_table::SymbolTable;
+use symbol_table::{Symbol, SymbolScope};
 
 #[derive(Clone)]
 struct EmittedInstruction {
@@ -63,6 +64,10 @@ pub struct Compiler {
 impl Compiler {
     pub fn new() -> Self {
         let mut res: Self = Default::default();
+
+        for (i, b) in builtins::BUILTINS.iter().enumerate() {
+            res.symbol_table.define_builtin(i, b.name);
+        }
 
         let main_scope = CompilationScope::new();
 
@@ -131,10 +136,7 @@ impl Compiler {
         match exp {
             Expression::Identifier(ident) => {
                 if let Some(symbol) = self.symbol_table.resolve(ident) {
-                    match symbol.scope {
-                        SymbolScope::Global => self.emit(Op::GetGlobal, &[symbol.index]),
-                        _ => self.emit(Op::GetLocal, &[symbol.index]),
-                    };
+                    self.load_symbol(symbol);
                 } else {
                     return Err(CompilerError::UnknownVariable(ident.to_string()));
                 }
@@ -352,6 +354,14 @@ impl Compiler {
         let outer = self.symbol_table.outer.as_ref().unwrap().borrow().clone();
         self.symbol_table = outer;
         self.scopes.pop().unwrap().instructions
+    }
+
+    fn load_symbol(&mut self, symbol: Symbol) {
+        match symbol.scope {
+            SymbolScope::Global => self.emit(Op::GetGlobal, &[symbol.index]),
+            SymbolScope::Local => self.emit(Op::GetLocal, &[symbol.index]),
+            SymbolScope::BuiltIn => self.emit(Op::GetBuiltIn, &[symbol.index]),
+        };
     }
 
     fn remove_last_pop(&mut self) {
@@ -1187,6 +1197,48 @@ mod tests {
         run_compiler_tests(tests);
     }
 
+    #[test]
+    fn builtins() {
+        let tests = vec![
+            (
+                "len([]);\
+                 push([], 1);",
+                vec![Object::Integer(1)],
+                vec![
+                    make_instruction(Op::GetBuiltIn, &[0]),
+                    make_instruction(Op::Array, &[0]),
+                    make_instruction(Op::Call, &[1]),
+                    make_instruction(Op::Pop, &[]),
+                    make_instruction(Op::GetBuiltIn, &[5]),
+                    make_instruction(Op::Array, &[0]),
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Call, &[2]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "fn() { len([]) }",
+                vec![Object::CompiledFunction(
+                    vec![
+                        make_instruction(Op::GetBuiltIn, &[0]),
+                        make_instruction(Op::Array, &[0]),
+                        make_instruction(Op::Call, &[1]),
+                        make_instruction(Op::ReturnValue, &[]),
+                    ]
+                    .concat(),
+                    0,
+                    0,
+                )],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
     fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
@@ -1260,9 +1312,14 @@ mod tests {
 
         for (i, b) in expected.iter().enumerate() {
             assert_eq!(
-                *b, actual[i],
-                "wrong instruction at {}. expected {} but got {}",
-                i, b, actual[i]
+                *b,
+                actual[i],
+                "wrong instruction at {}. expected {} in \n{}\nbut got {} in \n{}",
+                i,
+                b,
+                expected.to_string(),
+                actual[i],
+                actual.to_string(),
             );
         }
     }
