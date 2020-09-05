@@ -838,6 +838,10 @@ mod tests {
             ("fn(a, b) { a + b; }(1);", VMError::WrongArity(2, 1)),
         ];
 
+        run_vm_tests_with_errors(tests);
+    }
+
+    fn run_vm_tests_with_errors(tests: Vec<(&str, VMError)>) {
         for (input, expected) in tests {
             let program = parse(input);
             let mut compiler = Compiler::new();
