@@ -14,7 +14,7 @@ pub fn run() {
 
     let mut constants: Vec<Object> = vec![];
     let mut globals = new_globals();
-    let mut symbol_table = SymbolTable::default();
+    let mut symbol_table = SymbolTable::new_with_builtins();
 
     loop {
         print!(">> ");

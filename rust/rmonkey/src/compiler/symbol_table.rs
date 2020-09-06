@@ -1,3 +1,4 @@
+use crate::object::builtins;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 #[derive(PartialEq, Clone, Debug)]
@@ -23,6 +24,16 @@ pub struct SymbolTable {
 }
 
 impl SymbolTable {
+    pub fn new_with_builtins() -> Self {
+        let mut res = Self::default();
+
+        for (i, b) in builtins::BUILTINS.iter().enumerate() {
+            res.define_builtin(i, b.name);
+        }
+
+        res
+    }
+
     pub fn new_enclosed(outer: &SymbolTable) -> Self {
         let mut res = Self::default();
 
@@ -47,7 +58,7 @@ impl SymbolTable {
         s
     }
 
-    pub fn define_builtin(&mut self, index: usize, name: &str) -> Symbol {
+    fn define_builtin(&mut self, index: usize, name: &str) -> Symbol {
         let s = Symbol {
             name: name.to_owned(),
             scope: SymbolScope::BuiltIn,

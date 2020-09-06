@@ -5,7 +5,6 @@ use crate::ast::Statement;
 use crate::{
     ast::{BlockStatement, InfixOperator, PrefixOperator, Program},
     code::{make_instruction, Instructions, Op},
-    object::builtins,
     object::Object,
 };
 use std::{error::Error, fmt};
@@ -65,9 +64,7 @@ impl Compiler {
     pub fn new() -> Self {
         let mut res: Self = Default::default();
 
-        for (i, b) in builtins::BUILTINS.iter().enumerate() {
-            res.symbol_table.define_builtin(i, b.name);
-        }
+        res.symbol_table = SymbolTable::new_with_builtins();
 
         let main_scope = CompilationScope::new();
 
