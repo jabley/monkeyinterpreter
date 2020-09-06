@@ -1201,6 +1201,16 @@ mod tests {
     fn builtins() {
         let tests = vec![
             (
+                r#"len("")"#,
+                vec![Object::String("".to_owned())],
+                vec![
+                    make_instruction(Op::GetBuiltIn, &[0]),
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Call, &[1]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
                 "len([]);\
                  push([], 1);",
                 vec![Object::Integer(1)],

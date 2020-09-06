@@ -4,7 +4,7 @@ use crate::ast::InfixOperator;
 use crate::code::{self, Op};
 use crate::compiler::Bytecode;
 use crate::object::EvalError;
-use crate::object::{HashKey, Object};
+use crate::object::{builtins, HashKey, Object};
 use crate::vm::frame::Frame;
 use indexmap::IndexMap;
 use std::{error, fmt};
@@ -193,8 +193,9 @@ impl VM {
                     let num_args = self.read_u8(ip + 1);
                     self.increment_ip(1);
 
-                    self.call_function(num_args)?;
-                    continue; // we don't want to increment the new current_frame ip
+                    if self.call_function(num_args)? {
+                        continue; // we pushed a new frame, so we don't want to increment the new current_frame ip
+                    }
                 }
                 Some(Op::ReturnValue) => {
                     let return_value = self.pop()?;
@@ -230,6 +231,14 @@ impl VM {
                     let base_pointer = self.current_frame().base_pointer;
                     self.push(self.stack[base_pointer + local_index].clone())?;
                 }
+                Some(Op::GetBuiltIn) => {
+                    let builtin_index = self.read_u8(ip + 1);
+                    self.increment_ip(1);
+
+                    let builtin = &builtins::BUILTINS[builtin_index];
+
+                    self.push(builtin.builtin.clone())?;
+                }
                 _ => todo!("Unhandled op code {} – {:?}", op_code, op),
             }
             self.increment_ip(1);
@@ -264,8 +273,8 @@ impl VM {
         Ok(Object::Hash(hash))
     }
 
-    fn call_function(&mut self, num_args: usize) -> Result<(), VMError> {
-        // In both arms, we are cloning the object on the stack. So just clone it once and use it.
+    fn call_function(&mut self, num_args: usize) -> Result<bool, VMError> {
+        // In all arms, we are cloning the object on the stack. So just clone it once and use it.
         let context_object = self.stack[self.sp - 1 - num_args].clone();
 
         match context_object {
@@ -279,7 +288,19 @@ impl VM {
                 );
                 self.push_frame(frame);
                 self.sp += num_locals;
-                Ok(())
+                Ok(true)
+            }
+            Object::BuiltIn(builtin) => {
+                let args = self.stack[(self.sp - num_args)..self.sp].to_vec();
+
+                match builtin(args) {
+                    Ok(res) => {
+                        self.sp -= num_args + 1;
+                        self.push(res)?;
+                        Ok(false)
+                    }
+                    Err(eval_err) => Err(VMError::Eval(eval_err)),
+                }
             }
             _ => Err(VMError::CallingNonFunction(context_object)),
         }
@@ -839,6 +860,72 @@ mod tests {
         ];
 
         run_vm_tests_with_errors(tests);
+    }
+
+    #[test]
+    // #[ignore]
+    fn builtin_functions() {
+        let good_program_tests = vec![
+            (r#"len("")"#, Object::Integer(0)),
+            (r#"len("four")"#, Object::Integer(4)),
+            (r#"len("hello world")"#, Object::Integer(11)),
+            (r#"len([1, 2, 3])"#, Object::Integer(3)),
+            (r#"len([])"#, Object::Integer(0)),
+            (r#"puts("hello world")"#, Object::Null),
+            (r#"first([1, 2, 3])"#, Object::Integer(1)),
+            (r#"first([])"#, Object::Null),
+            (r#"last([1, 2, 3])"#, Object::Integer(3)),
+            (r#"last([])"#, Object::Null),
+            (
+                r#"rest([1, 2, 3])"#,
+                Object::Array(vec![Object::Integer(2), Object::Integer(3)]),
+            ),
+            (r#"rest([])"#, Object::Null),
+            (r#"push([], 1)"#, Object::Array(vec![Object::Integer(1)])),
+            (r#"first([])"#, Object::Null),
+        ];
+
+        run_vm_tests(good_program_tests);
+
+        let bad_program_tests = vec![
+            (
+                r#"len(1)"#,
+                VMError::Eval(EvalError::UnsupportedArguments(
+                    "len".to_owned(),
+                    vec![Object::Integer(1)],
+                )),
+            ),
+            (
+                r#"len("one", "two")"#,
+                VMError::Eval(EvalError::WrongArgumentCount {
+                    expected: 1,
+                    given: 2,
+                }),
+            ),
+            (
+                r#"first(1)"#,
+                VMError::Eval(EvalError::UnsupportedArguments(
+                    "first".to_owned(),
+                    vec![Object::Integer(1)],
+                )),
+            ),
+            (
+                r#"last(1)"#,
+                VMError::Eval(EvalError::UnsupportedArguments(
+                    "last".to_owned(),
+                    vec![Object::Integer(1)],
+                )),
+            ),
+            (
+                r#"push(1, 1)"#,
+                VMError::Eval(EvalError::UnsupportedArguments(
+                    "push".to_owned(),
+                    vec![Object::Integer(1), Object::Integer(1)],
+                )),
+            ),
+        ];
+
+        run_vm_tests_with_errors(bad_program_tests);
     }
 
     fn run_vm_tests_with_errors(tests: Vec<(&str, VMError)>) {

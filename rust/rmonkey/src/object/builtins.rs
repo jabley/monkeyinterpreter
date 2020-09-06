@@ -3,7 +3,7 @@ use super::{assert_argument_count, EvalError, EvalResult, Object};
 #[derive(PartialEq, Debug)]
 pub struct BuiltIn {
     pub name: &'static str,
-    builtin: Object,
+    pub builtin: Object,
 }
 
 /// BUILTINS provides a stable iteration order so that we can define index-based lookups in
