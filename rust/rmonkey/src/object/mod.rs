@@ -12,6 +12,9 @@ pub enum Object {
     Null,
     Integer(i64),
     Boolean(bool),
+    /// Closure wraps a CompiledFunction and any free variables that are referenced. See
+    /// https://en.wikipedia.org/wiki/Free_variables_and_bound_variables
+    Closure(Box<Object>, Vec<Object>),
     CompiledFunction(Instructions, usize, usize),
     Return(Box<Object>),
     Function(Vec<String>, BlockStatement, Environment),
@@ -54,6 +57,12 @@ impl Hash for Object {
                 for (k, v) in map {
                     k.hash(state);
                     v.hash(state);
+                }
+            }
+            Object::Closure(compiled_function, free) => {
+                compiled_function.hash(state);
+                for f in free {
+                    f.hash(state);
                 }
             }
         }
@@ -116,6 +125,7 @@ impl fmt::Display for Object {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Object::Closure(compiled_function, _free) => write!(f, "{}", compiled_function),
         }
     }
 }
@@ -141,6 +151,7 @@ impl Object {
             Object::BuiltIn(_) => "BUILTIN",
             Object::Array(_) => "ARRAY",
             Object::Hash(_) => "HASH",
+            Object::Closure(_, _) => "CLOSURE",
         }
     }
 }
