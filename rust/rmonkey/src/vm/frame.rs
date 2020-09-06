@@ -5,28 +5,31 @@ use crate::object::Object;
 /// It is short for "call frame" or "stack frame", and is sometimes called an "activation record" in
 /// the literature
 pub struct Frame {
-    func: Object,
+    closure: Object,
     pub ip: usize,
     pub base_pointer: usize,
 }
 
 impl Frame {
-    pub fn new(func: Object, base_pointer: usize) -> Self {
-        match func {
-            Object::CompiledFunction(_, _, _) => Frame {
-                func,
+    pub fn new(closure: Object, base_pointer: usize) -> Self {
+        match closure {
+            Object::Closure(_, _) => Frame {
+                closure,
                 ip: 0,
                 base_pointer,
             },
-            _ => panic!("Object not supported {}", func.type_name()),
+            _ => panic!("Object not supported {}", closure.type_name()),
         }
     }
 
     pub fn instructions(&self) -> Instructions {
-        if let Object::CompiledFunction(instructions, _, _) = &self.func {
-            instructions.clone()
-        } else {
-            panic!("Instructions not supported {}", self.func.type_name());
+        match &self.closure {
+            Object::Closure(compiled_function, _) => match compiled_function.as_ref() {
+                Object::CompiledFunction(instructions, _, _) => return instructions.clone(),
+                _ => {}
+            },
+            _ => {}
         }
+        panic!("Instructions not supported {}", self.closure.type_name());
     }
 }

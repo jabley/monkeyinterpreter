@@ -266,7 +266,7 @@ impl Compiler {
                 let compiled_function =
                     Object::CompiledFunction(instructions, num_locals, parameters.len());
                 let constant = self.add_constant(compiled_function);
-                self.emit(Op::Constant, &[constant]);
+                self.emit(Op::Closure, &[constant, 0]);
             }
             Expression::Call(function, parameters) => {
                 self.compile_expression(function)?;
@@ -933,7 +933,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Closure, &[2, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -955,7 +955,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Closure, &[2, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -977,7 +977,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Closure, &[2, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -996,7 +996,7 @@ mod tests {
                 0,
             )],
             vec![
-                make_instruction(Op::Constant, &[0]),
+                make_instruction(Op::Closure, &[0, 0]),
                 make_instruction(Op::Pop, &[]),
             ],
         )];
@@ -1022,7 +1022,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[1]), // the compiled function
+                    make_instruction(Op::Closure, &[1, 0]), // the compiled function
                     make_instruction(Op::Call, &[0]),
                     make_instruction(Op::Pop, &[]),
                 ],
@@ -1044,7 +1044,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[1]), // the compiled function
+                    make_instruction(Op::Closure, &[1, 0]), // the compiled function
                     make_instruction(Op::SetGlobal, &[0]),
                     make_instruction(Op::GetGlobal, &[0]),
                     make_instruction(Op::Call, &[0]),
@@ -1068,7 +1068,7 @@ mod tests {
                     Object::Integer(24),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Closure, &[0, 0]),
                     make_instruction(Op::SetGlobal, &[0]),
                     make_instruction(Op::GetGlobal, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -1099,7 +1099,7 @@ mod tests {
                     Object::Integer(26),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Closure, &[0, 0]),
                     make_instruction(Op::SetGlobal, &[0]),
                     make_instruction(Op::GetGlobal, &[0]),
                     make_instruction(Op::Constant, &[1]),
@@ -1134,7 +1134,7 @@ mod tests {
                 vec![
                     make_instruction(Op::Constant, &[0]),
                     make_instruction(Op::SetGlobal, &[0]),
-                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Closure, &[1, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -1155,7 +1155,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[1]),
+                    make_instruction(Op::Closure, &[1, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -1185,7 +1185,7 @@ mod tests {
                     ),
                 ],
                 vec![
-                    make_instruction(Op::Constant, &[2]),
+                    make_instruction(Op::Closure, &[2, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),
@@ -1237,7 +1237,7 @@ mod tests {
                     0,
                 )],
                 vec![
-                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::Closure, &[0, 0]),
                     make_instruction(Op::Pop, &[]),
                 ],
             ),

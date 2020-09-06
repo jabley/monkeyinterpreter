@@ -14,6 +14,7 @@ pub enum VMError {
     CallingNonFunction(Object),
     Eval(EvalError),
     IndexNotSupported(Object),
+    NonFunction(Object),
     StackOverflow(),
     StackEmpty(),
     TypeMismatch(InfixOperator, Object, Object),
@@ -48,6 +49,7 @@ impl fmt::Display for VMError {
             VMError::WrongArity(want, got) => {
                 write!(f, "wrong number of arguments: want={}, got={}", want, got)
             }
+            VMError::NonFunction(obj) => write!(f, "not a function: {}", obj.type_name()),
         }
     }
 }
@@ -92,7 +94,8 @@ impl VM {
         stack.resize(STACK_SIZE, Object::Null);
 
         let main_fn = Object::CompiledFunction(bytecode.instructions.clone(), 0, 0);
-        let main_frame = Frame::new(main_fn, 0);
+        let main_closure = Object::Closure(Box::new(main_fn), vec![]);
+        let main_frame = Frame::new(main_closure, 0);
 
         let mut frames = Vec::with_capacity(MAX_FRAMES);
         frames.push(main_frame);
@@ -239,6 +242,15 @@ impl VM {
 
                     self.push(builtin.builtin.clone())?;
                 }
+                Some(Op::Closure) => {
+                    let const_index = self.read_u16(ip + 1);
+                    self.increment_ip(2);
+
+                    let _ = self.read_u8(ip + 3);
+                    self.increment_ip(1);
+
+                    self.push_closure(const_index)?;
+                }
                 _ => todo!("Unhandled op code {} – {:?}", op_code, op),
             }
             self.increment_ip(1);
@@ -277,18 +289,29 @@ impl VM {
         // In all arms, we are cloning the object on the stack. So just clone it once and use it.
         let context_object = self.stack[self.sp - 1 - num_args].clone();
 
-        match context_object {
-            Object::CompiledFunction(instructions, num_locals, num_parameters) => {
-                if num_parameters != num_args {
-                    return Err(VMError::WrongArity(num_parameters, num_args));
+        match &context_object {
+            Object::Closure(compiled_function, _) => {
+                if let Object::CompiledFunction(instructions, num_locals, num_parameters) =
+                    compiled_function.as_ref()
+                {
+                    if *num_parameters != num_args {
+                        return Err(VMError::WrongArity(*num_parameters, num_args));
+                    }
+                    let frame = Frame::new(
+                        Object::Closure(
+                            Box::new(Object::CompiledFunction(
+                                instructions.clone(),
+                                *num_locals,
+                                *num_parameters,
+                            )),
+                            vec![],
+                        ),
+                        self.sp - num_args,
+                    );
+                    self.push_frame(frame);
+                    self.sp += num_locals;
+                    return Ok(true);
                 }
-                let frame = Frame::new(
-                    Object::CompiledFunction(instructions, num_locals, num_parameters),
-                    self.sp - num_args,
-                );
-                self.push_frame(frame);
-                self.sp += num_locals;
-                Ok(true)
             }
             Object::BuiltIn(builtin) => {
                 let args = self.stack[(self.sp - num_args)..self.sp].to_vec();
@@ -297,13 +320,16 @@ impl VM {
                     Ok(res) => {
                         self.sp -= num_args + 1;
                         self.push(res)?;
-                        Ok(false)
+                        return Ok(false);
                     }
-                    Err(eval_err) => Err(VMError::Eval(eval_err)),
+                    Err(eval_err) => {
+                        return Err(VMError::Eval(eval_err));
+                    }
                 }
             }
-            _ => Err(VMError::CallingNonFunction(context_object)),
+            _ => {}
         }
+        Err(VMError::CallingNonFunction(context_object.clone()))
     }
 
     fn current_frame(&self) -> &Frame {
@@ -455,6 +481,18 @@ impl VM {
 
     fn pop_frame(&mut self) -> Frame {
         self.frames.pop().unwrap()
+    }
+
+    fn push_closure(&mut self, const_index: usize) -> Result<(), VMError> {
+        let constant = self.constants[const_index].clone();
+
+        match constant {
+            Object::CompiledFunction(_, _, _) => {
+                let closure = Object::Closure(Box::new(constant), vec![]);
+                self.push(closure)
+            }
+            _ => Err(VMError::NonFunction(constant)),
+        }
     }
 
     fn push_frame(&mut self, frame: Frame) {
