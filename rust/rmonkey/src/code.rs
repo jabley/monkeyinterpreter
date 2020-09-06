@@ -102,7 +102,8 @@ byte_enum!(
         Return, // similar to ReturnValue except there is no explicit return value to return but an implicit Object::Null
         SetLocal,
         GetLocal,
-        GetBuiltIn
+        GetBuiltIn,
+        Closure
     ]
 );
 
@@ -137,6 +138,7 @@ impl Op {
             Op::SetLocal => "OpSetLocal",
             Op::GetLocal => "OpGetLocal",
             Op::GetBuiltIn => "OpGetBuiltIn",
+            Op::Closure => "OpClosure",
         }
     }
 
@@ -171,6 +173,13 @@ impl Op {
             | Op::Index
             | Op::ReturnValue
             | Op::Return => vec![],
+            // Closure has 2 operands. The first (2 bytes wide) is the constant index. This describes
+            // where we can find the *object.CompiledFunction that's to be converted into a closure.
+            // The second operand (1 byte wide) is the number of free variables for the closure. This
+            // limits us to 256 free variables per closure. If you have a closure that has more than 256
+            // free variables, you might be writing code which is hard to understand :D
+            Op::Closure
+            => vec![2, 1],
         }
     }
 }
@@ -233,6 +242,7 @@ mod tests {
             make_instruction(Op::GetLocal, &[1]),
             make_instruction(Op::Constant, &vec![2]),
             make_instruction(Op::Constant, &vec![65535]),
+            make_instruction(Op::Closure, &vec![65535, 255]),
         ]
         .concat();
 
@@ -240,7 +250,8 @@ mod tests {
             "0000 OpAdd\n\
              0001 OpGetLocal 1\n\
              0003 OpConstant 2\n\
-             0006 OpConstant 65535",
+             0006 OpConstant 65535\n\
+             0009 OpClosure 65535 255",
             instructions.to_string()
         );
     }
@@ -255,6 +266,11 @@ mod tests {
             ),
             (Op::Add, vec![], vec![Op::Add as u8]),
             (Op::GetLocal, vec![255], vec![Op::GetLocal as u8, 255u8]),
+            (
+                Op::Closure,
+                vec![65534, 255],
+                vec![Op::Closure as u8, 255, 254, 255],
+            ),
         ];
 
         for (op, operands, expected) in tests {
@@ -280,7 +296,11 @@ mod tests {
 
     #[test]
     fn test_read_operands() {
-        let tests = vec![(Op::Constant, vec![65535], 2), (Op::GetLocal, vec![255], 1)];
+        let tests = vec![
+            (Op::Constant, vec![65535], 2),
+            (Op::GetLocal, vec![255], 1),
+            (Op::Closure, vec![65535, 255], 3),
+        ];
 
         for (op, operands, bytes_read) in tests {
             let instruction = make_instruction(op, &operands);
