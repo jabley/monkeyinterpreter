@@ -133,6 +133,20 @@ impl Default for SymbolTable {
     }
 }
 
+impl Drop for SymbolTable {
+    fn drop(&mut self) {
+        let mut outer = self.outer.take();
+
+        while let Some(symbol_table) = outer {
+            if let Ok(symbol_table) = Rc::try_unwrap(symbol_table) {
+                outer = symbol_table.borrow_mut().outer.take();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
