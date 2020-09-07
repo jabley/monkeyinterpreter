@@ -186,9 +186,9 @@ impl<'a> Parser<'a> {
             Token::Function => self.parse_function_literal(),
             Token::OpenBracket => self.parse_array_literal(),
             Token::OpenBrace => self.parse_hash_literal(),
-            t @ Token::Let => Err(ParserError::UnexpectedKeyword(t.clone())),
-            t @ Token::Return => Err(ParserError::UnexpectedKeyword(t.clone())),
-            t @ Token::Else => Err(ParserError::UnexpectedKeyword(t.clone())),
+            Token::Let | Token::Return | Token::Else => {
+                Err(ParserError::UnexpectedKeyword(self.cur_token.clone()))
+            }
             _ => Err(ParserError::ExpectedPrefixToken(self.cur_token.clone())),
         }
     }
