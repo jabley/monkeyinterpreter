@@ -335,12 +335,12 @@ mod tests {
                     index: 1,
                 },
                 Symbol {
-                    name: "c".to_owned(),
+                    name: "e".to_owned(),
                     scope: SymbolScope::Local,
                     index: 0,
                 },
                 Symbol {
-                    name: "d".to_owned(),
+                    name: "f".to_owned(),
                     scope: SymbolScope::Local,
                     index: 1,
                 },
