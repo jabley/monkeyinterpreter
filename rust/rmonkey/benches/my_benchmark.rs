@@ -1,10 +1,12 @@
 use criterion::{criterion_group, criterion_main, Criterion};
 use rmonkey::{
     ast::Program,
+    compiler::Compiler,
     evaluator,
     lexer::Lexer,
     object::{Environment, Object},
     parser::Parser,
+    vm::VM,
 };
 
 fn parse() -> Program {
@@ -28,10 +30,10 @@ fn parse() -> Program {
     parser.parse_program()
 }
 
-fn criterion_benchmark(c: &mut Criterion) {
+fn criterion_benchmark_evaluator(c: &mut Criterion) {
     let program = parse();
 
-    c.bench_function("fib 18", |b| {
+    c.bench_function("fib 18 (Interpreter)", |b| {
         b.iter(|| {
             let mut env = Environment::new();
 
@@ -44,5 +46,32 @@ fn criterion_benchmark(c: &mut Criterion) {
     });
 }
 
-criterion_group!(benches, criterion_benchmark);
+fn criterion_benchmark_vm(c: &mut Criterion) {
+    let program = parse();
+
+    c.bench_function("fib 18 (VM)", |b| {
+        b.iter(|| {
+            let mut c = Compiler::new();
+
+            match c.compile(&program) {
+                Ok(bytecode) => {
+                    let mut vm = VM::new(bytecode);
+
+                    match vm.run() {
+                        Ok(Object::Integer(2584)) => {}
+                        Ok(obj) => println!("Unexpected result: {}", obj.to_string()),
+                        Err(e) => println!("Unexpected error: {}", e.to_string()),
+                    }
+                }
+                Err(e) => println!("Unexpected error: {}", e.to_string()),
+            }
+        })
+    });
+}
+
+criterion_group!(
+    benches,
+    criterion_benchmark_evaluator,
+    criterion_benchmark_vm
+);
 criterion_main!(benches);
