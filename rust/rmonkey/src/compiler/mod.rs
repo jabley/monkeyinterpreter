@@ -133,7 +133,7 @@ impl Compiler {
         match exp {
             Expression::Identifier(ident) => {
                 if let Some(symbol) = self.symbol_table.resolve(ident) {
-                    self.load_symbol(symbol);
+                    self.load_symbol(&symbol);
                 } else {
                     return Err(CompilerError::UnknownVariable(ident.to_string()));
                 }
@@ -260,13 +260,18 @@ impl Compiler {
                     self.emit(Op::Return, &[]);
                 }
 
+                let free_symbols = self.symbol_table.free_symbols.clone();
                 let num_locals = self.symbol_table.num_definitions();
                 let instructions = self.leave_scope();
+
+                for s in &free_symbols {
+                    self.load_symbol(s);
+                }
 
                 let compiled_function =
                     Object::CompiledFunction(instructions, num_locals, parameters.len());
                 let constant = self.add_constant(compiled_function);
-                self.emit(Op::Closure, &[constant, 0]);
+                self.emit(Op::Closure, &[constant, free_symbols.len()]);
             }
             Expression::Call(function, parameters) => {
                 self.compile_expression(function)?;
@@ -353,12 +358,12 @@ impl Compiler {
         self.scopes.pop().unwrap().instructions
     }
 
-    fn load_symbol(&mut self, symbol: Symbol) {
+    fn load_symbol(&mut self, symbol: &Symbol) {
         match symbol.scope {
             SymbolScope::Global => self.emit(Op::GetGlobal, &[symbol.index]),
             SymbolScope::Local => self.emit(Op::GetLocal, &[symbol.index]),
             SymbolScope::BuiltIn => self.emit(Op::GetBuiltIn, &[symbol.index]),
-            SymbolScope::Free => todo!(),
+            SymbolScope::Free => self.emit(Op::GetFree, &[symbol.index]),
         };
     }
 
@@ -1247,6 +1252,168 @@ mod tests {
         run_compiler_tests(tests);
     }
 
+    #[test]
+    fn closures() {
+        let tests = vec![
+            (
+                "fn(a) {
+                    fn(b) {
+                        a + b
+                    }
+                }",
+                vec![
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetFree, &[0]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        1,
+                    ),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Closure, &[0, 1]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        1,
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Closure, &[1, 0]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "fn(a) {
+                    fn(b) {
+                        fn(c) {
+                            a + b + c
+                        }
+                    }
+                };",
+                vec![
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetFree, &[0]),
+                            make_instruction(Op::GetFree, &[1]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        1,
+                    ),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetFree, &[0]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Closure, &[0, 2]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        1,
+                    ),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Closure, &[1, 1]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        1,
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Closure, &[2, 0]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+            (
+                "let global = 55;
+
+                fn() {
+                    let a = 66;
+
+                    fn() {
+                        let b = 77;
+
+                        fn() {
+                            let c = 88;
+
+                            global + a + b + c;
+                        }
+                    }
+                }",
+                vec![
+                    Object::Integer(55),
+                    Object::Integer(66),
+                    Object::Integer(77),
+                    Object::Integer(88),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[3]),
+                            make_instruction(Op::SetLocal, &[0]),
+                            make_instruction(Op::GetGlobal, &[0]),
+                            make_instruction(Op::GetFree, &[0]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::GetFree, &[1]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Add, &[]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        0,
+                    ),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[2]),
+                            make_instruction(Op::SetLocal, &[0]),
+                            make_instruction(Op::GetFree, &[0]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Closure, &[4, 2]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        0,
+                    ),
+                    Object::CompiledFunction(
+                        vec![
+                            make_instruction(Op::Constant, &[1]),
+                            make_instruction(Op::SetLocal, &[0]),
+                            make_instruction(Op::GetLocal, &[0]),
+                            make_instruction(Op::Closure, &[5, 1]),
+                            make_instruction(Op::ReturnValue, &[]),
+                        ]
+                        .concat(),
+                        1,
+                        0,
+                    ),
+                ],
+                vec![
+                    make_instruction(Op::Constant, &[0]),
+                    make_instruction(Op::SetGlobal, &[0]),
+                    make_instruction(Op::Closure, &[6, 0]),
+                    make_instruction(Op::Pop, &[]),
+                ],
+            ),
+        ];
+
+        run_compiler_tests(tests);
+    }
+
     fn run_compiler_tests(tests: Vec<(&str, Vec<Object>, Vec<Instructions>)>) {
         for (input, expected_constants, expected_instructions) in tests {
             let program = parse(input);
@@ -1299,8 +1466,9 @@ mod tests {
                     );
                     expect_instructions(vec![expected_value.to_vec()], actual_value.clone());
                 }
-                _ => todo!(
-                    "Not implemented assertion for type: {}",
+                _ => panic!(
+                    "Type mismatch. Expected {} but got {}",
+                    b.type_name(),
                     actual[i].type_name()
                 ),
             }

@@ -103,7 +103,8 @@ byte_enum!(
         SetLocal,
         GetLocal,
         GetBuiltIn,
-        Closure
+        Closure,
+        GetFree
     ]
 );
 
@@ -139,6 +140,7 @@ impl Op {
             Op::GetLocal => "OpGetLocal",
             Op::GetBuiltIn => "OpGetBuiltIn",
             Op::Closure => "OpClosure",
+            Op::GetFree => "OpGetFree",
         }
     }
 
@@ -156,6 +158,7 @@ impl Op {
             | Op::SetLocal
             | Op::Call
             | Op::GetBuiltIn
+            | Op::GetFree
             => vec![1],
             Op::Add
             | Op::Sub

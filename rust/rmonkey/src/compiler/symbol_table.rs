@@ -21,7 +21,7 @@ pub struct Symbol {
 pub struct SymbolTable {
     store: HashMap<String, Symbol>,
     num_definitions: usize,
-    free_symbols: Vec<Symbol>,
+    pub free_symbols: Vec<Symbol>,
     pub outer: Option<Rc<RefCell<SymbolTable>>>,
 }
 
