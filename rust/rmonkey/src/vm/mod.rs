@@ -93,7 +93,7 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
-        let main_fn = Object::CompiledFunction(bytecode.instructions.clone(), 0, 0);
+        let main_fn = Object::CompiledFunction(bytecode.instructions, 0, 0);
         let main_closure = Object::Closure(Box::new(main_fn), vec![]);
         let main_frame = Frame::new(main_closure, 0);
 
@@ -329,7 +329,7 @@ impl VM {
             }
             _ => {}
         }
-        Err(VMError::CallingNonFunction(context_object.clone()))
+        Err(VMError::CallingNonFunction(context_object))
     }
 
     fn current_frame(&self) -> &Frame {

@@ -92,7 +92,7 @@ impl SymbolTable {
         if let Some(original) = res.clone() {
             if from_outer && ![SymbolScope::BuiltIn, SymbolScope::Global].contains(&original.scope)
             {
-                return Some(self.define_free(original.clone()));
+                return Some(self.define_free(original));
             }
         }
 

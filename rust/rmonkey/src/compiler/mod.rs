@@ -94,8 +94,8 @@ impl Compiler {
 
     fn bytecode(&mut self) -> Bytecode {
         Bytecode {
-            instructions: self.current_instructions().clone(),
-            constants: self.constants.clone(),
+            instructions: self.current_instructions().to_vec(),
+            constants: self.constants.drain(..).collect(),
         }
     }
 
@@ -260,8 +260,10 @@ impl Compiler {
                     self.emit(Op::Return, &[]);
                 }
 
-                let free_symbols = self.symbol_table.free_symbols.clone();
                 let num_locals = self.symbol_table.num_definitions();
+
+                let free_symbols: Vec<Symbol> = self.symbol_table.free_symbols.drain(..).collect();
+
                 let instructions = self.leave_scope();
 
                 for s in &free_symbols {
@@ -337,8 +339,8 @@ impl Compiler {
     }
 
     fn set_last_instruction(&mut self, op: Op, position: usize) {
-        if let Some(ins) = &self.current_scope().last_instruction {
-            self.current_scope().previous_instruction = Some(ins.clone());
+        if let Some(ins) = self.current_scope().last_instruction.take() {
+            self.current_scope().previous_instruction = Some(ins);
         }
         self.current_scope().last_instruction = Some(EmittedInstruction { op, position });
     }
@@ -1422,7 +1424,7 @@ mod tests {
 
             match compiler.compile(&program) {
                 Ok(bytecode) => {
-                    expect_instructions(expected_instructions, bytecode.instructions);
+                    expect_instructions(expected_instructions, &bytecode.instructions);
                     expect_constants(expected_constants, bytecode.constants);
                 }
                 Err(e) => panic!(e),
@@ -1464,7 +1466,7 @@ mod tests {
                         expected_parameters, actual_parameters,
                         "number of parameters matches"
                     );
-                    expect_instructions(vec![expected_value.to_vec()], actual_value.clone());
+                    expect_instructions(vec![expected_value.to_vec()], &actual_value);
                 }
                 _ => panic!(
                     "Type mismatch. Expected {} but got {}",
@@ -1475,7 +1477,7 @@ mod tests {
         }
     }
 
-    fn expect_instructions(expected_stream: Vec<Instructions>, actual: Instructions) {
+    fn expect_instructions(expected_stream: Vec<Instructions>, actual: &Instructions) {
         let expected = expected_stream.concat();
 
         assert_eq!(
