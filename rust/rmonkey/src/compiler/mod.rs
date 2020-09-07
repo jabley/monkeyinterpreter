@@ -106,8 +106,8 @@ impl Compiler {
                 self.emit(Op::Pop, &[]);
             }
             Statement::Let(ident, exp) => {
-                self.compile_expression(exp)?;
                 let symbol = self.symbol_table.define(ident);
+                self.compile_expression(exp)?;
                 match symbol.scope {
                     SymbolScope::Global => self.emit(Op::SetGlobal, &[symbol.index]),
                     _ => self.emit(Op::SetLocal, &[symbol.index]),

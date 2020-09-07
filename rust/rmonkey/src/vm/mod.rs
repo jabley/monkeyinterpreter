@@ -1052,6 +1052,27 @@ mod tests {
         run_vm_tests(tests);
     }
 
+    #[test]
+    fn recursive_fibonacci() {
+        let tests = vec![(
+            "let fibonacci = fn(x) {
+                if (x == 0) {
+                    return 0;
+                } else {
+                    if (x == 1) {
+                        return 1;
+                    } else {
+                        fibonacci(x - 1) + fibonacci(x - 2);
+                    }
+                }
+            };
+            fibonacci(15);",
+            Object::Integer(610),
+        )];
+
+        run_vm_tests(tests);
+    }
+
     fn run_vm_tests_with_errors(tests: Vec<(&str, VMError)>) {
         for (input, expected) in tests {
             let program = parse(input);
