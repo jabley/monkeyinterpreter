@@ -270,8 +270,8 @@ impl Compiler {
 
                 let compiled_function =
                     Object::CompiledFunction(instructions, num_locals, parameters.len());
-                let constant = self.add_constant(compiled_function);
-                self.emit(Op::Closure, &[constant, free_symbols.len()]);
+                let constant_index = self.add_constant(compiled_function);
+                self.emit(Op::Closure, &[constant_index, free_symbols.len()]);
             }
             Expression::Call(function, parameters) => {
                 self.compile_expression(function)?;
