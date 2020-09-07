@@ -358,6 +358,7 @@ impl Compiler {
             SymbolScope::Global => self.emit(Op::GetGlobal, &[symbol.index]),
             SymbolScope::Local => self.emit(Op::GetLocal, &[symbol.index]),
             SymbolScope::BuiltIn => self.emit(Op::GetBuiltIn, &[symbol.index]),
+            SymbolScope::Free => todo!(),
         };
     }
 

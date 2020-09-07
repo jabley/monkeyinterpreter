@@ -6,6 +6,7 @@ pub enum SymbolScope {
     Global,
     Local,
     BuiltIn,
+    Free,
 }
 
 #[derive(PartialEq, Clone, Debug)]
@@ -20,6 +21,7 @@ pub struct Symbol {
 pub struct SymbolTable {
     store: HashMap<String, Symbol>,
     num_definitions: usize,
+    free_symbols: Vec<Symbol>,
     pub outer: Option<Rc<RefCell<SymbolTable>>>,
 }
 
@@ -70,14 +72,49 @@ impl SymbolTable {
         s
     }
 
-    pub fn resolve(&self, name: &str) -> Option<Symbol> {
-        match self.store.get(&name.to_string()) {
+    fn define_free(&mut self, original: Symbol) -> Symbol {
+        let s = Symbol {
+            name: original.name.to_string(),
+            index: self.free_symbols.len(),
+            scope: SymbolScope::Free,
+        };
+
+        self.store.insert(s.name.to_string(), s.clone());
+
+        self.free_symbols.push(original);
+
+        s
+    }
+
+    pub fn resolve(&mut self, name: &str) -> Option<Symbol> {
+        let (res, from_outer) = self.resolve_internal(name);
+
+        if let Some(original) = res.clone() {
+            if from_outer && ![SymbolScope::BuiltIn, SymbolScope::Global].contains(&original.scope)
+            {
+                return Some(self.define_free(original.clone()));
+            }
+        }
+
+        res
+    }
+
+    fn resolve_internal(&self, name: &str) -> (Option<Symbol>, bool) {
+        let mut from_outer = false;
+
+        let res = match self.store.get(&name.to_string()) {
             Some(value) => Some(value.clone()),
             None => match &self.outer {
-                Some(symbol_table) => symbol_table.as_ref().borrow().resolve(name),
+                Some(symbol_table) => {
+                    from_outer = true;
+                    symbol_table.as_ref().borrow_mut().resolve(name)
+                }
+
                 None => None,
             },
-        }
+        };
+
+        (res, from_outer)
     }
 
     pub fn num_definitions(&self) -> usize {
@@ -90,6 +127,7 @@ impl Default for SymbolTable {
         SymbolTable {
             store: Default::default(),
             num_definitions: 0,
+            free_symbols: vec![],
             outer: None,
         }
     }
@@ -207,7 +245,7 @@ mod tests {
         .collect();
 
         for (_, v) in expected {
-            assert_symbol_is_resolvable(&global, v);
+            assert_symbol_is_resolvable(&mut global, v);
         }
     }
 
@@ -259,11 +297,11 @@ mod tests {
         .collect();
 
         for (_, v) in expected {
-            assert_symbol_is_resolvable(&local, v);
+            assert_symbol_is_resolvable(&mut local, v);
         }
     }
 
-    fn assert_symbol_is_resolvable(symbol_table: &SymbolTable, expected: Symbol) {
+    fn assert_symbol_is_resolvable(symbol_table: &mut SymbolTable, expected: Symbol) {
         if let Some(actual) = symbol_table.resolve(&expected.name) {
             assert_eq!(expected, actual)
         } else {
@@ -273,7 +311,7 @@ mod tests {
 
     #[test]
     fn resolve_nested_local() {
-        let check_symbols = |symbol_table: &SymbolTable, expected_symbols: Vec<Symbol>| {
+        let check_symbols = |symbol_table: &mut SymbolTable, expected_symbols: Vec<Symbol>| {
             for expected in expected_symbols {
                 assert_symbol_is_resolvable(symbol_table, expected);
             }
@@ -292,7 +330,7 @@ mod tests {
         // design later on.
 
         check_symbols(
-            &first_local,
+            &mut first_local,
             vec![
                 Symbol {
                     name: "a".to_owned(),
@@ -322,7 +360,7 @@ mod tests {
         second_local.define("f");
 
         check_symbols(
-            &second_local,
+            &mut second_local,
             vec![
                 Symbol {
                     name: "a".to_owned(),
@@ -379,20 +417,175 @@ mod tests {
             global.define_builtin(s.index, &s.name);
         }
 
-        let assert_builtins = |symbol_table: SymbolTable, expected: &Vec<Symbol>| {
+        let assert_builtins = |symbol_table: &mut SymbolTable, expected: &Vec<Symbol>| {
             for s in expected {
-                assert_symbol_is_resolvable(&symbol_table, s.clone());
+                assert_symbol_is_resolvable(symbol_table, s.clone());
             }
         };
 
-        assert_builtins(global.clone(), &expected);
+        assert_builtins(&mut global.clone(), &expected);
 
         let first_local = SymbolTable::new_enclosed(&global);
 
-        assert_builtins(first_local.clone(), &expected);
+        assert_builtins(&mut first_local.clone(), &expected);
 
         let second_local = SymbolTable::new_enclosed(&first_local);
 
-        assert_builtins(second_local.clone(), &expected);
+        assert_builtins(&mut second_local.clone(), &expected);
+    }
+
+    #[test]
+    fn resolve_free() {
+        let assert_free_symbols = |symbol_table: &mut SymbolTable,
+                                   expected_symbols: Vec<Symbol>,
+                                   expected_free: Vec<Symbol>| {
+            for s in expected_symbols {
+                assert_symbol_is_resolvable(symbol_table, s);
+            }
+
+            assert_eq!(
+                expected_free.len(),
+                symbol_table.free_symbols.len(),
+                "Wrong number of free symbols"
+            );
+
+            for (i, free) in expected_free.iter().enumerate() {
+                assert_eq!(free, &symbol_table.free_symbols[i]);
+            }
+        };
+
+        let mut global = SymbolTable::default();
+        global.define("a");
+        global.define("b");
+
+        let mut first_local = SymbolTable::new_enclosed(&global);
+        first_local.define("c");
+        first_local.define("d");
+
+        assert_free_symbols(
+            &mut first_local,
+            vec![
+                Symbol {
+                    name: "a".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 0,
+                },
+                Symbol {
+                    name: "b".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 1,
+                },
+                Symbol {
+                    name: "c".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 0,
+                },
+                Symbol {
+                    name: "d".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 1,
+                },
+            ],
+            vec![],
+        );
+
+        let mut second_local = SymbolTable::new_enclosed(&first_local);
+        second_local.define("e");
+        second_local.define("f");
+
+        assert_free_symbols(
+            &mut second_local,
+            vec![
+                Symbol {
+                    name: "a".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 0,
+                },
+                Symbol {
+                    name: "b".to_owned(),
+                    scope: SymbolScope::Global,
+                    index: 1,
+                },
+                Symbol {
+                    name: "c".to_owned(),
+                    scope: SymbolScope::Free,
+                    index: 0,
+                },
+                Symbol {
+                    name: "d".to_owned(),
+                    scope: SymbolScope::Free,
+                    index: 1,
+                },
+                Symbol {
+                    name: "e".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 0,
+                },
+                Symbol {
+                    name: "f".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 1,
+                },
+            ],
+            vec![
+                Symbol {
+                    name: "c".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 0,
+                },
+                Symbol {
+                    name: "d".to_owned(),
+                    scope: SymbolScope::Local,
+                    index: 1,
+                },
+            ],
+        );
+    }
+
+    #[test]
+    fn resolve_unresolvable_free() {
+        let mut global = SymbolTable::default();
+        global.define("a");
+
+        let mut first_local = SymbolTable::new_enclosed(&global);
+        first_local.define("c");
+
+        let mut second_local = SymbolTable::new_enclosed(&first_local);
+        second_local.define("e");
+        second_local.define("f");
+
+        for expected in vec![
+            Symbol {
+                name: "a".to_owned(),
+                scope: SymbolScope::Global,
+                index: 0,
+            },
+            Symbol {
+                name: "c".to_owned(),
+                scope: SymbolScope::Free,
+                index: 0,
+            },
+            Symbol {
+                name: "e".to_owned(),
+                scope: SymbolScope::Local,
+                index: 0,
+            },
+            Symbol {
+                name: "f".to_owned(),
+                scope: SymbolScope::Local,
+                index: 1,
+            },
+        ] {
+            assert_symbol_is_resolvable(&mut second_local, expected);
+        }
+
+        for expected_unresolvable in vec!["b", "d"] {
+            assert_eq!(
+                None,
+                second_local.resolve(expected_unresolvable),
+                "{} resolved but was not expected to",
+                expected_unresolvable
+            );
+        }
     }
 }
