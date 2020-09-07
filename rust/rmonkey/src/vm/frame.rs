@@ -5,7 +5,7 @@ use crate::object::Object;
 /// It is short for "call frame" or "stack frame", and is sometimes called an "activation record" in
 /// the literature
 pub struct Frame {
-    closure: Object,
+    pub closure: Object,
     pub ip: usize,
     pub base_pointer: usize,
 }
