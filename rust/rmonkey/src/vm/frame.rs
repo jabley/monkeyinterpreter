@@ -23,12 +23,10 @@ impl Frame {
     }
 
     pub fn instructions(&self) -> Instructions {
-        match &self.closure {
-            Object::Closure(compiled_function, _) => match compiled_function.as_ref() {
-                Object::CompiledFunction(instructions, _, _) => return instructions.clone(),
-                _ => {}
-            },
-            _ => {}
+        if let Object::Closure(compiled_function, _) = &self.closure {
+            if let Object::CompiledFunction(instructions, _, _) = compiled_function.as_ref() {
+                return instructions.clone();
+            }
         }
         panic!("Instructions not supported {}", self.closure.type_name());
     }
