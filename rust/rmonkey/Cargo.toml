@@ -24,3 +24,6 @@ bench = false
 [[bench]]
 name = "my_benchmark"
 harness = false
+
+[profile.release]
+debug = true
