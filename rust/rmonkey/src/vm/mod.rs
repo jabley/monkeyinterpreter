@@ -93,9 +93,7 @@ impl VM {
         let mut stack = Vec::with_capacity(STACK_SIZE);
         stack.resize(STACK_SIZE, Object::Null);
 
-        let main_fn = Object::CompiledFunction(bytecode.instructions, 0, 0);
-        let main_closure = Object::Closure(Box::new(main_fn), vec![]);
-        let main_frame = Frame::new(main_closure, 0);
+        let main_frame = Frame::new(bytecode.instructions, 0, vec![]);
 
         let mut frames = Vec::with_capacity(MAX_FRAMES);
         frames.push(main_frame);
@@ -255,10 +253,7 @@ impl VM {
                     let free_index = self.read_u8(ip + 1);
                     self.increment_ip(1);
 
-                    match self.current_frame().closure.clone() {
-                        Object::Closure(_, free) => self.push(free[free_index].clone())?,
-                        _ => panic!("Should never get here! :D"),
-                    }
+                    self.push(self.current_frame().free[free_index].clone())?;
                 }
                 _ => todo!("Unhandled op code {} – {:?}", op_code, op),
             }
@@ -306,17 +301,7 @@ impl VM {
                     if *num_parameters != num_args {
                         return Err(VMError::WrongArity(*num_parameters, num_args));
                     }
-                    let frame = Frame::new(
-                        Object::Closure(
-                            Box::new(Object::CompiledFunction(
-                                instructions.clone(),
-                                *num_locals,
-                                *num_parameters,
-                            )),
-                            free.clone(),
-                        ),
-                        self.sp - num_args,
-                    );
+                    let frame = Frame::new(instructions.clone(), self.sp - num_args, free.clone());
                     self.push_frame(frame);
                     self.sp += num_locals;
                     return Ok(true);
