@@ -8,26 +8,21 @@ pub struct Frame {
     pub closure: Object,
     pub ip: usize,
     pub base_pointer: usize,
+    pub instructions: Instructions,
 }
 
 impl Frame {
     pub fn new(closure: Object, base_pointer: usize) -> Self {
-        match closure {
-            Object::Closure(_, _) => Frame {
-                closure,
-                ip: 0,
-                base_pointer,
-            },
-            _ => panic!("Object not supported {}", closure.type_name()),
-        }
-    }
-
-    pub fn instructions(&self) -> Instructions {
-        if let Object::Closure(compiled_function, _) = &self.closure {
+        if let Object::Closure(compiled_function, _) = &closure {
             if let Object::CompiledFunction(instructions, _, _) = compiled_function.as_ref() {
-                return instructions.clone();
+                return Frame {
+                    closure: closure.clone(),
+                    ip: 0,
+                    base_pointer,
+                    instructions: instructions.clone(),
+                }
             }
         }
-        panic!("Instructions not supported {}", self.closure.type_name());
+        panic!("Object not supported {}", closure.type_name())
     }
 }

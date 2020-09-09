@@ -118,9 +118,9 @@ impl VM {
     }
 
     pub fn run(&mut self) -> Result<Object, VMError> {
-        while self.current_frame().ip < self.current_frame().instructions().len() {
+        while self.current_frame().ip < self.current_frame().instructions.len() {
             let ip = self.current_frame().ip;
-            let op_code = self.current_frame().instructions()[ip];
+            let op_code = self.current_frame().instructions[ip];
             let op = Op::lookup_op(op_code);
 
             match op {
@@ -527,11 +527,11 @@ impl VM {
     }
 
     fn read_u16(&self, index: usize) -> usize {
-        code::read_u16(&self.current_frame().instructions(), index)
+        code::read_u16(&self.current_frame().instructions, index)
     }
 
     fn read_u8(&self, index: usize) -> usize {
-        code::read_u8(&self.current_frame().instructions(), index)
+        code::read_u8(&self.current_frame().instructions, index)
     }
 }
 
