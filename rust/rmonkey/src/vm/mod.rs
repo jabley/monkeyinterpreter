@@ -293,15 +293,15 @@ impl VM {
         // In all arms, we are cloning the object on the stack. So just clone it once and use it.
         let context_object = self.stack[self.sp - 1 - num_args].clone();
 
-        match &context_object {
+        match context_object {
             Object::Closure(compiled_function, free) => {
                 if let Object::CompiledFunction(instructions, num_locals, num_parameters) =
-                    compiled_function.as_ref()
+                    self.unbox(compiled_function)
                 {
-                    if *num_parameters != num_args {
-                        return Err(VMError::WrongArity(*num_parameters, num_args));
+                    if num_parameters != num_args {
+                        return Err(VMError::WrongArity(num_parameters, num_args));
                     }
-                    let frame = Frame::new(instructions.clone(), self.sp - num_args, free.clone());
+                    let frame = Frame::new(instructions, self.sp - num_args, free);
                     self.push_frame(frame);
                     self.sp += num_locals;
                     return Ok(true);
@@ -323,7 +323,11 @@ impl VM {
             }
             _ => {}
         }
-        Err(VMError::CallingNonFunction(context_object))
+        Err(VMError::CallingNonFunction(self.stack[self.sp - 1 - num_args].clone()))
+    }
+
+    fn unbox<T>(&self, value: Box<T>) -> T {
+        *value
     }
 
     fn current_frame(&self) -> &Frame {
