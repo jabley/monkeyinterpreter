@@ -352,12 +352,7 @@ impl VM {
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop()?;
 
-        match operand {
-            Object::Boolean(true) => self.push(Object::Boolean(false)),
-            Object::Boolean(false) => self.push(Object::Boolean(true)),
-            Object::Null => self.push(Object::Boolean(true)),
-            _ => self.push(Object::Boolean(false)),
-        }
+        self.push(Object::Boolean(!operand.is_truthy()))
     }
 
     fn execute_binary_operation(&mut self, op: Op) -> Result<(), VMError> {
