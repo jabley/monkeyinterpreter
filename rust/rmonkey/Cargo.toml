@@ -21,6 +21,16 @@ name = "rmonkey"
 path = "src/bin/main.rs"
 bench = false
 
+[[bin]]
+name = "vm-flamegraph"
+path = "src/bin/vm.rs"
+bench = false
+
+[[bin]]
+name = "interpreter-flamegraph"
+path = "src/bin/interpreter.rs"
+bench = false
+
 [[bench]]
 name = "my_benchmark"
 harness = false
