@@ -18,7 +18,7 @@ bench = false
 
 [[bin]]
 name = "rmonkey"
-path = "src/main.rs"
+path = "src/bin/main.rs"
 bench = false
 
 [[bench]]
