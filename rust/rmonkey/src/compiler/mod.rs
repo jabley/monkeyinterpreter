@@ -117,7 +117,9 @@ impl Compiler {
                 self.compile_expression(exp)?;
                 self.emit(Op::ReturnValue, &[]);
             }
-            _ => todo!(),
+            Statement::Return(None) => {
+                self.emit(Op::Return, &[]);
+            }
         }
         Ok(())
     }
