@@ -32,7 +32,7 @@ fn parse() -> Program {
 			}
 		}
 	};
-    fibonacci(36);
+    fibonacci(35);
     ",
     );
     let mut parser = Parser::new(lexer);
