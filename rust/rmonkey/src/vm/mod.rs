@@ -122,12 +122,7 @@ impl VM {
             let op = Op::lookup_op(op_code);
 
             match op {
-                Some(Op::Constant) => {
-                    let const_index = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-
-                    self.push(self.constants[const_index].clone())?;
-                }
+                Some(Op::Constant) => self.load_constant(ip)?,
                 Some(Op::Add) | Some(Op::Sub) | Some(Op::Mul) | Some(Op::Div) => {
                     self.execute_binary_operation(op.unwrap())?
                 }
@@ -141,55 +136,14 @@ impl VM {
                 }
                 Some(Op::Bang) => self.execute_bang_operator()?,
                 Some(Op::Minus) => self.execute_minus_operator()?,
-                Some(Op::Jump) => {
-                    let pos = self.read_u16(ip + 1);
-                    self.set_ip(pos - 1);
-                }
-                Some(Op::JumpNotTruthy) => {
-                    let pos = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-
-                    let condition = self.pop()?;
-
-                    if !condition.is_truthy() {
-                        self.set_ip(pos - 1);
-                    }
-                }
+                Some(Op::Jump) => self.unconditional_jump(ip),
+                Some(Op::JumpNotTruthy) => self.conditional_jump(ip)?,
                 Some(Op::Null) => self.push(Object::Null)?,
-                Some(Op::SetGlobal) => {
-                    let global_index = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-                    self.globals[global_index] = self.pop()?;
-                }
-                Some(Op::GetGlobal) => {
-                    let global_index = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-                    self.push(self.globals[global_index].clone())?;
-                }
-                Some(Op::Array) => {
-                    let num_elements = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-
-                    let array = self.build_array(self.sp - num_elements, self.sp)?;
-                    self.sp -= num_elements;
-
-                    self.push(array)?;
-                }
-                Some(Op::Hash) => {
-                    let num_elements = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-
-                    let hash = self.build_hash(self.sp - num_elements, self.sp)?;
-                    self.sp -= num_elements;
-
-                    self.push(hash)?;
-                }
-                Some(Op::Index) => {
-                    let index = self.pop()?;
-                    let left = self.pop()?;
-
-                    self.execute_index_expression(left, index)?;
-                }
+                Some(Op::SetGlobal) => self.set_global(ip)?,
+                Some(Op::GetGlobal) => self.get_global(ip)?,
+                Some(Op::Array) => self.load_array(ip)?,
+                Some(Op::Hash) => self.load_hash(ip)?,
+                Some(Op::Index) => self.index()?,
                 Some(Op::Call) => {
                     let num_args = self.read_u8(ip + 1);
                     self.increment_ip(1);
@@ -198,63 +152,13 @@ impl VM {
                         continue; // we pushed a new frame, so we don't want to increment the new current_frame ip
                     }
                 }
-                Some(Op::ReturnValue) => {
-                    let return_value = self.pop()?;
-
-                    // Pop the frame and update the stack pointer. The additional 1 means that we don't
-                    // need to pop the object.CompiledFunction too – just move the stack pointer.
-                    let frame = self.pop_frame();
-                    self.sp = frame.base_pointer - 1;
-
-                    self.push(return_value)?;
-                }
-                Some(Op::Return) => {
-                    // Pop the frame and update the stack pointer. The additional 1 means that we don't
-                    // need to pop the object.CompiledFunction too – just move the stack pointer.
-                    let frame = self.pop_frame();
-                    self.sp = frame.base_pointer - 1;
-
-                    self.push(Object::Null)?;
-                }
-                Some(Op::SetLocal) => {
-                    let local_index = self.read_u8(ip + 1);
-                    self.increment_ip(1);
-
-                    let base_pointer = self.current_frame().base_pointer;
-
-                    let obj = self.pop()?;
-                    self.stack[base_pointer + local_index] = obj;
-                }
-                Some(Op::GetLocal) => {
-                    let local_index = self.read_u8(ip + 1);
-                    self.increment_ip(1);
-
-                    let base_pointer = self.current_frame().base_pointer;
-                    self.push(self.stack[base_pointer + local_index].clone())?;
-                }
-                Some(Op::GetBuiltIn) => {
-                    let builtin_index = self.read_u8(ip + 1);
-                    self.increment_ip(1);
-
-                    let builtin = &builtins::BUILTINS[builtin_index];
-
-                    self.push(builtin.builtin.clone())?;
-                }
-                Some(Op::Closure) => {
-                    let const_index = self.read_u16(ip + 1);
-                    self.increment_ip(2);
-
-                    let num_free = self.read_u8(ip + 3);
-                    self.increment_ip(1);
-
-                    self.push_closure(const_index, num_free)?;
-                }
-                Some(Op::GetFree) => {
-                    let free_index = self.read_u8(ip + 1);
-                    self.increment_ip(1);
-
-                    self.push(self.current_frame().free[free_index].clone())?;
-                }
+                Some(Op::ReturnValue) => self.return_value(true)?,
+                Some(Op::Return) => self.return_value(false)?,
+                Some(Op::SetLocal) => self.set_local(ip)?,
+                Some(Op::GetLocal) => self.get_local(ip)?,
+                Some(Op::GetBuiltIn) => self.load_builtin(ip)?,
+                Some(Op::Closure) => self.load_closure(ip)?,
+                Some(Op::GetFree) => self.load_free(ip)?,
                 _ => todo!("Unhandled op code {} – {:?}", op_code, op),
             }
             self.increment_ip(1);
@@ -323,11 +227,138 @@ impl VM {
             }
             _ => {}
         }
-        Err(VMError::CallingNonFunction(self.stack[self.sp - 1 - num_args].clone()))
+        Err(VMError::CallingNonFunction(
+            self.stack[self.sp - 1 - num_args].clone(),
+        ))
     }
 
     fn unbox<T>(&self, value: Box<T>) -> T {
         *value
+    }
+
+    fn load_constant(&mut self, ip: usize) -> Result<(), VMError> {
+        let const_index = self.read_u16(ip + 1);
+        self.increment_ip(2);
+
+        self.push(self.constants[const_index].clone())
+    }
+
+    fn unconditional_jump(&mut self, ip: usize) {
+        let pos = self.read_u16(ip + 1);
+        self.set_ip(pos - 1);
+    }
+
+    fn conditional_jump(&mut self, ip: usize) -> Result<(), VMError> {
+        let pos = self.read_u16(ip + 1);
+        self.increment_ip(2);
+
+        let condition = self.pop()?;
+
+        if !condition.is_truthy() {
+            self.set_ip(pos - 1);
+        }
+
+        Ok(())
+    }
+
+    fn set_global(&mut self, ip: usize) -> Result<(), VMError> {
+        let global_index = self.read_u16(ip + 1);
+        self.increment_ip(2);
+        self.globals[global_index] = self.pop()?;
+        Ok(())
+    }
+
+    fn get_global(&mut self, ip: usize) -> Result<(), VMError> {
+        let global_index = self.read_u16(ip + 1);
+        self.increment_ip(2);
+        self.push(self.globals[global_index].clone())
+    }
+
+    fn load_array(&mut self, ip: usize) -> Result<(), VMError> {
+        let num_elements = self.read_u16(ip + 1);
+        self.increment_ip(2);
+
+        let array = self.build_array(self.sp - num_elements, self.sp)?;
+        self.sp -= num_elements;
+
+        self.push(array)
+    }
+
+    fn load_hash(&mut self, ip: usize) -> Result<(), VMError> {
+        let num_elements = self.read_u16(ip + 1);
+        self.increment_ip(2);
+
+        let hash = self.build_hash(self.sp - num_elements, self.sp)?;
+        self.sp -= num_elements;
+
+        self.push(hash)
+    }
+
+    fn index(&mut self) -> Result<(), VMError> {
+        let index = self.pop()?;
+        let left = self.pop()?;
+
+        self.execute_index_expression(left, index)
+    }
+
+    fn return_value(&mut self, has_return_value: bool) -> Result<(), VMError> {
+        let return_value = match has_return_value {
+            true => self.pop()?,
+            false => Object::Null,
+        };
+
+        // Pop the frame and update the stack pointer. The additional 1 means that we don't
+        // need to pop the object.CompiledFunction too – just move the stack pointer.
+        let frame = self.pop_frame();
+        self.sp = frame.base_pointer - 1;
+
+        self.push(return_value)
+    }
+
+    fn set_local(&mut self, ip: usize) -> Result<(), VMError> {
+        let local_index = self.read_u8(ip + 1);
+        self.increment_ip(1);
+
+        let base_pointer = self.current_frame().base_pointer;
+
+        let obj = self.pop()?;
+        self.stack[base_pointer + local_index] = obj;
+
+        Ok(())
+    }
+
+    fn get_local(&mut self, ip: usize) -> Result<(), VMError> {
+        let local_index = self.read_u8(ip + 1);
+        self.increment_ip(1);
+
+        let base_pointer = self.current_frame().base_pointer;
+        self.push(self.stack[base_pointer + local_index].clone())
+    }
+
+    fn load_builtin(&mut self, ip: usize) -> Result<(), VMError> {
+        let builtin_index = self.read_u8(ip + 1);
+        self.increment_ip(1);
+
+        let builtin = &builtins::BUILTINS[builtin_index];
+
+        self.push(builtin.builtin.clone())
+    }
+
+    fn load_closure(&mut self, ip: usize) -> Result<(), VMError> {
+        let const_index = self.read_u16(ip + 1);
+        self.increment_ip(2);
+
+        let num_free = self.read_u8(ip + 3);
+        self.increment_ip(1);
+
+        self.push_closure(const_index, num_free)
+    }
+
+    fn load_free(&mut self, ip: usize) -> Result<(), VMError> {
+        let free_index = self.read_u8(ip + 1);
+        self.increment_ip(1);
+
+        self.push(self.current_frame().free[free_index].clone())
     }
 
     fn current_frame(&self) -> &Frame {
