@@ -203,25 +203,8 @@ func (vm *VM) Run() error {
 				return err
 			}
 
-		case code.OpReturnValue:
-			returnValue := vm.pop()
-
-			// Pop the frame and update the stack pointer. The additional 1 means that we don't
-			// need to pop the object.CompiledFunction too – just move the stack pointer.
-			frame := vm.popFrame()
-			vm.sp = frame.basePointer - 1
-
-			if err := vm.push(returnValue); err != nil {
-				return err
-			}
-
-		case code.OpReturn:
-			// Pop the frame and update the stack pointer. The additional 1 means that we don't
-			// need to pop the object.CompiledFunction too – just move the stack pointer.
-			frame := vm.popFrame()
-			vm.sp = frame.basePointer - 1
-
-			if err := vm.push(Null); err != nil {
+		case code.OpReturnValue, code.OpReturn:
+			if err := vm.returnValue(op == code.OpReturnValue); err != nil {
 				return err
 			}
 
@@ -548,6 +531,23 @@ func (vm *VM) pushClosure(constIndex, numFree int) error {
 func (vm *VM) pushFrame(f *Frame) {
 	vm.frames[vm.framesIndex] = f
 	vm.framesIndex++
+}
+
+func (vm *VM) returnValue(hasReturnValue bool) error {
+	var returnValue object.Object
+
+	if hasReturnValue {
+		returnValue = vm.pop()
+	} else {
+		returnValue = Null
+	}
+
+	// Pop the frame and update the stack pointer. The additional 1 means that we don't
+	// need to pop the object.CompiledFunction too – just move the stack pointer.
+	frame := vm.popFrame()
+	vm.sp = frame.basePointer - 1
+
+	return vm.push(returnValue)
 }
 
 func isTruthy(obj object.Object) bool {
