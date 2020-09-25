@@ -9,6 +9,8 @@ edition = "2018"
 [dependencies]
 byteorder = "1"
 indexmap = "1.5.1"
+clap = "2.33.3"
+pprof =  { version = "0.3", features = ["protobuf"] }
 
 [dev-dependencies]
 criterion = "0.3"
