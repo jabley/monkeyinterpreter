@@ -214,16 +214,14 @@ impl VM {
             Object::BuiltIn(builtin) => {
                 let args = self.stack[(self.sp - num_args)..self.sp].to_vec();
 
-                match builtin(args) {
+                return match builtin(args) {
                     Ok(res) => {
                         self.sp -= num_args + 1;
                         self.push(res)?;
-                        return Ok(false);
+                        Ok(false)
                     }
-                    Err(eval_err) => {
-                        return Err(VMError::Eval(eval_err));
-                    }
-                }
+                    Err(eval_err) => Err(VMError::Eval(eval_err)),
+                };
             }
             _ => {}
         }

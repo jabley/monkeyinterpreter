@@ -148,7 +148,7 @@ impl Compiler {
 
                 self.compile_block_statement(consequence)?;
 
-                if self.is_last_instruction(Op::Pop) {
+                if self.last_instruction_is(Op::Pop) {
                     self.remove_last_pop();
                 }
 
@@ -163,7 +163,7 @@ impl Compiler {
                     Some(body) => {
                         self.compile_block_statement(body)?;
 
-                        if self.is_last_instruction(Op::Pop) {
+                        if self.last_instruction_is(Op::Pop) {
                             self.remove_last_pop();
                         }
                     }
@@ -254,11 +254,11 @@ impl Compiler {
 
                 self.compile_block_statement(body)?;
 
-                if self.is_last_instruction(Op::Pop) {
+                if self.last_instruction_is(Op::Pop) {
                     self.replace_last_pop_with_return();
                 }
 
-                if !self.is_last_instruction(Op::ReturnValue) {
+                if !self.last_instruction_is(Op::ReturnValue) {
                     self.emit(Op::Return, &[]);
                 }
 
@@ -347,7 +347,7 @@ impl Compiler {
         self.current_scope().last_instruction = Some(EmittedInstruction { op, position });
     }
 
-    fn is_last_instruction(&mut self, op: Op) -> bool {
+    fn last_instruction_is(&mut self, op: Op) -> bool {
         self.current_scope()
             .last_instruction
             .as_ref()
