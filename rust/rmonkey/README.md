@@ -50,3 +50,21 @@ Instruments is the profiling toolset in Xcode.
     cargo instruments --bin vm-flamegraph --open
 
 This takes longer to capture the data, but gave another very fine-grained view of CPU time for `fib(35)`.
+
+### CLion with Rust plugin
+
+Running the profiler in CLion gave a much more detailed flamegraph.
+See [flamegraphs](flamegraphs/) for the exports.
+
+We can use the exported trace to re-create a flamegraph in other tooling such as [inferno](https://github.com/jonhoo/inferno).
+
+    cargo install inferno
+    cat flamegraphs/af1dadfcda_vm-flamegraph_2021-05-03-012730.collapsed | inferno-flamegraph > flamegraph.svg
+
+This showed that time was being spent in:
+
+* ~15% in `VM::call_function`
+* ~15% in `VM::get_global`
+
+Both of those were spending lots of time in `object::Object::clone`, which were respectively spending time in `Vec::clone`.
+So that's a lot of memory copying happening.
