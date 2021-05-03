@@ -20,7 +20,7 @@ The Go version is also the fastest to date:
 
     real	0m5.958s
     user	0m6.275s
-    sys	0m0.348s
+    sys     0m0.348s
 
 The [Makefile](Makefile) is useful.
 
