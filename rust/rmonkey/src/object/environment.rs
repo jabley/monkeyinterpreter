@@ -84,7 +84,7 @@ type Link = Option<Rc<RefCell<Context>>>;
 
 #[derive(Debug, Eq)]
 struct Context {
-    store: HashMap<String, Object>,
+    store: HashMap<String, Rc<Object>>,
     next: Link,
 }
 
@@ -103,13 +103,13 @@ impl Environment {
         }
     }
 
-    pub fn set(&mut self, key: &str, value: Object) {
+    pub fn set(&mut self, key: &str, value: Rc<Object>) {
         self.context
             .as_ref()
             .map(|node| node.borrow_mut().store.insert(key.to_string(), value));
     }
 
-    pub fn get(&self, key: &str) -> Option<Object> {
+    pub fn get(&self, key: &str) -> Option<Rc<Object>> {
         let context_ref = self.context.as_ref();
 
         match context_ref.unwrap().borrow().store.get(key) {
@@ -233,10 +233,10 @@ mod tests {
             _ => assert!(false, "Value hasn't been put into outer yet"),
         }
 
-        outer.set("fib", Object::Integer(1));
+        outer.set("fib", Rc::new(Object::Integer(1)));
 
         match enclosed.get("fib") {
-            Some(Object::Integer(1)) => {}
+            Some(value) => assert_eq!(&*value, &Object::Integer(1)),
             _ => assert!(false, "Value should be accessible from the outer reference"),
         }
     }

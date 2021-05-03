@@ -8,6 +8,7 @@ use rmonkey::{
     parser::Parser,
     vm::VM,
 };
+use std::ops::Deref;
 
 fn parse() -> Program {
     let lexer = Lexer::new(
@@ -38,8 +39,10 @@ fn criterion_benchmark_evaluator(c: &mut Criterion) {
             let mut env = Environment::new();
 
             match evaluator::eval(&program, &mut env) {
-                Ok(Object::Integer(2584)) => {}
-                Ok(obj) => println!("Unexpected result: {}", obj.to_string()),
+                Ok(obj) => match obj.deref() {
+                    Object::Integer(2584) => {}
+                    _ => println!("Unexpected result: {}", obj.to_string()),
+                },
                 Err(e) => println!("Unexpected error: {}", e.to_string()),
             }
         })
@@ -55,11 +58,13 @@ fn criterion_benchmark_vm(c: &mut Criterion) {
 
             match c.compile(&program) {
                 Ok(bytecode) => {
-                    let mut vm = VM::new(bytecode);
+                    let mut vm = VM::new(bytecode.constants, bytecode.instructions.to_vec());
 
                     match vm.run() {
-                        Ok(Object::Integer(2584)) => {}
-                        Ok(obj) => println!("Unexpected result: {}", obj.to_string()),
+                        Ok(obj) => match obj.deref() {
+                            Object::Integer(2584) => {}
+                            _ => println!("Unexpected result: {}", obj.to_string()),
+                        },
                         Err(e) => println!("Unexpected error: {}", e.to_string()),
                     }
                 }

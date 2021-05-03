@@ -8,11 +8,12 @@ use crate::compiler::{Compiler, SymbolTable};
 use crate::lexer::Lexer;
 use crate::parser::Parser;
 use crate::vm::VM;
+use std::rc::Rc;
 
 pub fn run() {
     let stdin = io::stdin();
 
-    let mut constants: Vec<Object> = vec![];
+    let mut constants: Vec<Rc<Object>> = vec![];
     let mut globals = new_globals();
     let mut symbol_table = SymbolTable::new_with_builtins();
 
@@ -39,8 +40,12 @@ pub fn run() {
         let mut compiler = Compiler::new_with_state(symbol_table, constants);
 
         match compiler.compile(&program) {
-            Ok(bytecode) => {
-                let mut vm = VM::new_with_globals_store(bytecode, globals);
+            Ok(_) => {
+                let mut vm = VM::new_with_globals_store(
+                    &compiler.constants,
+                    compiler.current_instructions().clone(),
+                    globals,
+                );
 
                 match vm.run() {
                     Ok(result) => println!("{}", result),
