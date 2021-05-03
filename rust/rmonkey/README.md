@@ -6,20 +6,20 @@ As per the Go original, we have a [tree-walking interpreter version](./src/evalu
 The interpreter is around 4 times slower than the VM version.
 
     > cargo bench
-        Finished bench [optimized] target(s) in 0.05s
+        Finished bench [optimized] target(s) in 0.14s
          Running target/release/deps/my_benchmark-fc933bad66fbb0f8
-    fib 18 (Interpreter)    time:   [34.582 ms 34.710 ms 34.845 ms]
+    fib 18 (Interpreter)    time:   [14.487 ms 14.567 ms 14.658 ms]
 
-    fib 18 (VM)             time:   [8.3043 ms 8.3459 ms 8.3911 ms]
+    fib 18 (VM)             time:   [2.7717 ms 2.7843 ms 2.7975 ms]
 
-And the Rust VM is [4 times slower than the Go VM](../../go/src/README.md).
+And the Rust VM is [slightly slower than the Go VM](../../go/src/README.md).
 
     > time ./target/release/vm-flamegraph
     Result: 9227465
 
-    real	0m25.759s
-    user	0m25.634s
-    sys	0m0.043s
+    real    0m9.258s
+    user    0m9.130s
+    sys     0m0.028s
 
 I would put this down to various things:
 
@@ -27,11 +27,11 @@ I would put this down to various things:
 * this is a direct port of the Go version to Rust. Some Go idioms will not translate well. For
   example, the Go version does not need to copy Object implementations. `vm.push` will push the
   pointer. In Rust, ownership rules mean that with the current design, we need to clone constant
-  Objects when pushing them on to the stack. An performance improvement in the Rust
+  Objects when pushing them on to the stack. A performance improvement in the Rust
   implementation might mean that `vm.pop()` will return an owned Object, rather than a borrowed
   one?
 
-It's been a really interesting exercise. I've not yet found many other Rust-based stack VMs to compare approaches and learn from.
+It's been a fascinating exercise. I've not yet found many other Rust-based stack VMs to compare approaches and learn from.
 
 ## Profiling
 
@@ -61,10 +61,14 @@ We can use the exported trace to re-create a flamegraph in other tooling such as
     cargo install inferno
     cat flamegraphs/af1dadfcda_vm-flamegraph_2021-05-03-012730.collapsed | inferno-flamegraph > flamegraph.svg
 
-This showed that time was being spent in:
+This showed that for the version af1dadfcda, the time was being spent in:
 
 * ~15% in `VM::call_function`
 * ~15% in `VM::get_global`
 
 Both of those were spending lots of time in `object::Object::clone`, which were respectively spending time in `Vec::clone`.
 So that's a lot of memory copying happening.
+Investigating how to minimise that memory copying led to the adoption of `std::rc::Rc` to use Rust's idiom for shared immutable memory.
+This gave a different profile of where time was being spent, and much better performance in the interpreter and VM.
+Turns out incrementing and decrementing a reference count is much faster than copying bytes.
+Who knew!
