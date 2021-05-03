@@ -1,25 +1,25 @@
 pub mod frame;
 
 use crate::ast::InfixOperator;
-use crate::code::{self, Op};
-use crate::compiler::Bytecode;
-use crate::object::EvalError;
-use crate::object::{builtins, HashKey, Object};
+use crate::code::{self, Instructions, Op};
+use crate::object::{Closure, CompiledFunction, EvalError};
+use crate::object::{HashKey, Object};
 use crate::vm::frame::Frame;
 use indexmap::IndexMap;
+use std::rc::Rc;
 use std::{error, fmt};
 
 #[derive(Debug, PartialEq)]
 pub enum VMError {
-    CallingNonFunction(Object),
+    CallingNonFunction(Rc<Object>),
     Eval(EvalError),
-    IndexNotSupported(Object),
-    NonFunction(Object),
+    IndexNotSupported(Rc<Object>),
+    NonFunction(Rc<Object>),
     StackOverflow(),
     StackEmpty(),
-    TypeMismatch(InfixOperator, Object, Object),
+    TypeMismatch(InfixOperator, Rc<Object>, Rc<Object>),
     UnknownOperation(Op),
-    UnsupportedNegationType(Object),
+    UnsupportedNegationType(Rc<Object>),
     WrongArity(usize, usize),
 }
 
@@ -71,35 +71,48 @@ const GLOBALS_SIZE: usize = 1 << 16;
 const MAX_FRAMES: usize = 1024;
 
 /// VM is responsible for executing bytecode. It will do the fetch/decode/execute loop for instructions.
-pub struct VM {
-    constants: Vec<Object>,
-    pub globals: Vec<Object>,
+pub struct VM<'a> {
+    constants: &'a [Rc<Object>],
+    pub globals: Vec<Rc<Object>>,
 
-    stack: Vec<Object>,
+    stack: Vec<Rc<Object>>,
     sp: usize, // aka stack pointer. Always points to the next value. Top of stack is `stack[sp-1]`
 
     frames: Vec<Frame>,
 }
 
-pub fn new_globals() -> Vec<Object> {
+pub fn new_globals() -> Vec<Rc<Object>> {
     let mut globals = Vec::with_capacity(GLOBALS_SIZE);
-    globals.resize(GLOBALS_SIZE, Object::Null);
+    globals.resize(GLOBALS_SIZE, Rc::new(Object::Null));
 
     globals
 }
 
-impl VM {
-    pub fn new(bytecode: Bytecode) -> Self {
+impl<'a> VM<'a> {
+    pub fn new(constants: &'a [Rc<Object>], instructions: Instructions) -> Self {
         let mut stack = Vec::with_capacity(STACK_SIZE);
-        stack.resize(STACK_SIZE, Object::Null);
+        stack.resize(STACK_SIZE, Rc::new(Object::Null));
 
-        let main_frame = Frame::new(bytecode.instructions, 0, vec![]);
+        let main_func = Rc::new(CompiledFunction {
+            instructions,
+            num_locals: 0,
+            num_parameters: 0,
+        });
+        let main_closure = Rc::new(Closure {
+            func: main_func,
+            free: vec![],
+        });
+        let main_frame = Frame {
+            cl: main_closure,
+            ip: 0,
+            base_pointer: 0,
+        };
 
         let mut frames = Vec::with_capacity(MAX_FRAMES);
         frames.push(main_frame);
 
         VM {
-            constants: bytecode.constants,
+            constants,
             globals: new_globals(),
             stack,
             sp: 0,
@@ -107,18 +120,22 @@ impl VM {
         }
     }
 
-    pub fn new_with_globals_store(bytecode: Bytecode, globals: Vec<Object>) -> Self {
-        let mut vm = Self::new(bytecode);
+    pub fn new_with_globals_store(
+        constants: &'a [Rc<Object>],
+        instructions: Instructions,
+        globals: Vec<Rc<Object>>,
+    ) -> Self {
+        let mut vm = Self::new(constants, instructions);
 
         vm.globals = globals;
 
         vm
     }
 
-    pub fn run(&mut self) -> Result<Object, VMError> {
-        while self.current_frame().ip < self.current_frame().instructions.len() {
+    pub fn run(&mut self) -> Result<Rc<Object>, VMError> {
+        while self.execute_current_frame() {
             let ip = self.current_frame().ip;
-            let op_code = self.current_frame().instructions[ip];
+            let op_code = self.current_op_code();
             let op = Op::lookup_op(op_code);
 
             match op {
@@ -126,8 +143,8 @@ impl VM {
                 Some(Op::Add) | Some(Op::Sub) | Some(Op::Mul) | Some(Op::Div) => {
                     self.execute_binary_operation(op.unwrap())?
                 }
-                Some(Op::True) => self.push(Object::Boolean(true))?,
-                Some(Op::False) => self.push(Object::Boolean(false))?,
+                Some(Op::True) => self.push(Rc::new(Object::Boolean(true)))?,
+                Some(Op::False) => self.push(Rc::new(Object::Boolean(false)))?,
                 Some(Op::Pop) => {
                     self.pop()?;
                 }
@@ -138,7 +155,7 @@ impl VM {
                 Some(Op::Minus) => self.execute_minus_operator()?,
                 Some(Op::Jump) => self.unconditional_jump(ip),
                 Some(Op::JumpNotTruthy) => self.conditional_jump(ip)?,
-                Some(Op::Null) => self.push(Object::Null)?,
+                Some(Op::Null) => self.push(Rc::new(Object::Null))?,
                 Some(Op::SetGlobal) => self.set_global(ip)?,
                 Some(Op::GetGlobal) => self.get_global(ip)?,
                 Some(Op::Array) => self.load_array(ip)?,
@@ -169,11 +186,11 @@ impl VM {
 
     fn build_array(&self, start: usize, end: usize) -> Result<Object, VMError> {
         let mut elements = Vec::with_capacity(end - start);
-        elements.resize(elements.capacity(), Object::Null);
+        elements.resize(elements.capacity(), Rc::new(Object::Null));
 
         elements[0..(end - start)].clone_from_slice(&self.stack[start..end]);
 
-        Ok(Object::Array(elements))
+        Ok(Object::Array(Rc::new(elements)))
     }
 
     fn build_hash(&self, start: usize, end: usize) -> Result<Object, VMError> {
@@ -185,53 +202,47 @@ impl VM {
             let key = self.stack[i].clone();
             let value = self.stack[i + 1].clone();
 
-            let hash_key = HashKey::from_object(key).or_else(|e| Err(VMError::Eval(e)))?;
+            let hash_key = HashKey::from_object(&key).or_else(|e| Err(VMError::Eval(e)))?;
             hash.insert(hash_key, value);
             i += 2;
         }
 
-        Ok(Object::Hash(hash))
+        Ok(Object::Hash(Rc::new(hash)))
     }
 
     fn call_function(&mut self, num_args: usize) -> Result<bool, VMError> {
         // In all arms, we are cloning the object on the stack. So just clone it once and use it.
         let context_object = self.stack[self.sp - 1 - num_args].clone();
 
-        match context_object {
-            Object::Closure(compiled_function, free) => {
-                if let Object::CompiledFunction(instructions, num_locals, num_parameters) =
-                    self.unbox(compiled_function)
-                {
-                    if num_parameters != num_args {
-                        return Err(VMError::WrongArity(num_parameters, num_args));
-                    }
-                    let frame = Frame::new(instructions, self.sp - num_args, free);
+        match &*context_object {
+            Object::Closure(cl) => {
+                if cl.func.num_parameters != num_args {
+                    Err(VMError::WrongArity(cl.func.num_parameters, num_args))
+                } else {
+                    let frame = Frame {
+                        cl: cl.clone(),
+                        ip: 0,
+                        base_pointer: self.sp - num_args,
+                    };
                     self.push_frame(frame);
-                    self.sp += num_locals;
-                    return Ok(true);
+                    self.sp += cl.func.num_locals;
+                    Ok(true)
                 }
             }
             Object::BuiltIn(builtin) => {
                 let args = self.stack[(self.sp - num_args)..self.sp].to_vec();
 
-                return match builtin(args) {
+                match builtin.apply(&args) {
                     Ok(res) => {
                         self.sp -= num_args + 1;
                         self.push(res)?;
                         Ok(false)
                     }
                     Err(eval_err) => Err(VMError::Eval(eval_err)),
-                };
+                }
             }
-            _ => {}
+            _ => Err(VMError::CallingNonFunction(context_object)),
         }
-        Err(VMError::CallingNonFunction(
-            self.stack[self.sp - 1 - num_args].clone(),
-        ))
-    }
-
-    fn unbox<T>(&self, value: Box<T>) -> T {
-        *value
     }
 
     fn load_constant(&mut self, ip: usize) -> Result<(), VMError> {
@@ -279,7 +290,7 @@ impl VM {
         let array = self.build_array(self.sp - num_elements, self.sp)?;
         self.sp -= num_elements;
 
-        self.push(array)
+        self.push(Rc::new(array))
     }
 
     fn load_hash(&mut self, ip: usize) -> Result<(), VMError> {
@@ -289,7 +300,7 @@ impl VM {
         let hash = self.build_hash(self.sp - num_elements, self.sp)?;
         self.sp -= num_elements;
 
-        self.push(hash)
+        self.push(Rc::new(hash))
     }
 
     fn index(&mut self) -> Result<(), VMError> {
@@ -300,9 +311,10 @@ impl VM {
     }
 
     fn return_value(&mut self, has_return_value: bool) -> Result<(), VMError> {
-        let return_value = match has_return_value {
-            true => self.pop()?,
-            false => Object::Null,
+        let return_value = if has_return_value {
+            self.pop()?
+        } else {
+            Rc::new(Object::Null)
         };
 
         // Pop the frame and update the stack pointer. The additional 1 means that we don't
@@ -334,12 +346,12 @@ impl VM {
     }
 
     fn load_builtin(&mut self, ip: usize) -> Result<(), VMError> {
-        let builtin_index = self.read_u8(ip + 1);
+        let builtin_index = self.read_u8(ip + 1) as u8;
         self.increment_ip(1);
 
-        let builtin = &builtins::BUILTINS[builtin_index];
+        let builtin = unsafe { ::std::mem::transmute(builtin_index) };
 
-        self.push(builtin.builtin.clone())
+        self.push(Rc::new(Object::BuiltIn(builtin)))
     }
 
     fn load_closure(&mut self, ip: usize) -> Result<(), VMError> {
@@ -356,7 +368,7 @@ impl VM {
         let free_index = self.read_u8(ip + 1);
         self.increment_ip(1);
 
-        self.push(self.current_frame().free[free_index].clone())
+        self.push(self.current_frame().cl.free[free_index].clone())
     }
 
     fn current_frame(&self) -> &Frame {
@@ -371,12 +383,16 @@ impl VM {
         self.frames.last_mut().unwrap().ip = to;
     }
 
-    fn execute_array_index(&mut self, elements: &[Object], index: i64) -> Result<(), VMError> {
+    fn execute_array_index(
+        &mut self,
+        elements: &Rc<Vec<Rc<Object>>>,
+        index: i64,
+    ) -> Result<(), VMError> {
         // bounds check
         let max = (elements.len() as i64) - 1;
 
         if index < 0 || index > max {
-            self.push(Object::Null)
+            self.push(Rc::new(Object::Null))
         } else {
             self.push(elements[index as usize].clone())
         }
@@ -385,14 +401,14 @@ impl VM {
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop()?;
 
-        self.push(Object::Boolean(!operand.is_truthy()))
+        self.push(Rc::new(Object::Boolean(!operand.is_truthy())))
     }
 
     fn execute_binary_operation(&mut self, op: Op) -> Result<(), VMError> {
         let right = self.pop()?;
         let left = self.pop()?;
 
-        match (&left, &right) {
+        match (&*left, &*right) {
             (Object::Integer(l), Object::Integer(r)) => {
                 self.execute_binary_integer_operation(l, r, op)
             }
@@ -410,17 +426,17 @@ impl VM {
         op: Op,
     ) -> Result<(), VMError> {
         match op {
-            Op::Add => self.push(Object::Integer(l + r)),
-            Op::Sub => self.push(Object::Integer(l - r)),
-            Op::Mul => self.push(Object::Integer(l * r)),
-            Op::Div => self.push(Object::Integer(l / r)),
+            Op::Add => self.push(Rc::new(Object::Integer(l + r))),
+            Op::Sub => self.push(Rc::new(Object::Integer(l - r))),
+            Op::Mul => self.push(Rc::new(Object::Integer(l * r))),
+            Op::Div => self.push(Rc::new(Object::Integer(l / r))),
             _ => Err(VMError::UnknownOperation(op)),
         }
     }
 
     fn execute_binary_string_operation(&mut self, l: &str, r: &str, op: Op) -> Result<(), VMError> {
         match op {
-            Op::Add => self.push(Object::String(format!("{}{}", l, r))),
+            Op::Add => self.push(Rc::new(Object::String(format!("{}{}", l, r)))),
             _ => Err(VMError::UnknownOperation(op)),
         }
     }
@@ -429,20 +445,24 @@ impl VM {
         let right = self.pop()?;
         let left = self.pop()?;
 
-        match (&left, &right) {
+        match (&*left, &*right) {
             (Object::Integer(left), Object::Integer(right)) => {
                 self.execute_integer_comparison(op, left, right)
             }
             _ => match op {
-                Op::Equal => self.push(Object::Boolean(left.eq(&right))),
-                Op::NotEqual => self.push(Object::Boolean(!left.eq(&right))),
+                Op::Equal => self.push(Rc::new(Object::Boolean(left.eq(&right)))),
+                Op::NotEqual => self.push(Rc::new(Object::Boolean(!left.eq(&right)))),
                 _ => Err(VMError::UnknownOperation(op)),
             },
         }
     }
 
-    fn execute_index_expression(&mut self, left: Object, index: Object) -> Result<(), VMError> {
-        match (&left, &index) {
+    fn execute_index_expression(
+        &mut self,
+        left: Rc<Object>,
+        index: Rc<Object>,
+    ) -> Result<(), VMError> {
+        match (&*left, &*index) {
             (Object::Array(elements), Object::Integer(i)) => {
                 self.execute_array_index(&elements, *i)
             }
@@ -453,13 +473,13 @@ impl VM {
 
     fn execute_hash_index(
         &mut self,
-        map: &IndexMap<HashKey, Object>,
+        map: &Rc<IndexMap<HashKey, Rc<Object>>>,
         key: &Object,
     ) -> Result<(), VMError> {
-        let hash_key = HashKey::from_object(key.clone()).or_else(|e| Err(VMError::Eval(e)))?;
+        let hash_key = HashKey::from_object(key).or_else(|e| Err(VMError::Eval(e)))?;
         match map.get(&hash_key) {
             Some(v) => self.push(v.clone()),
-            None => self.push(Object::Null),
+            None => self.push(Rc::new(Object::Null)),
         }
     }
 
@@ -470,9 +490,9 @@ impl VM {
         right: &i64,
     ) -> Result<(), VMError> {
         match op {
-            Op::Equal => self.push(Object::Boolean(left == right)),
-            Op::NotEqual => self.push(Object::Boolean(left != right)),
-            Op::GreaterThan => self.push(Object::Boolean(left > right)),
+            Op::Equal => self.push(Rc::new(Object::Boolean(left == right))),
+            Op::NotEqual => self.push(Rc::new(Object::Boolean(left != right))),
+            Op::GreaterThan => self.push(Rc::new(Object::Boolean(left > right))),
             _ => Err(VMError::UnknownOperation(op)),
         }
     }
@@ -480,17 +500,17 @@ impl VM {
     fn execute_minus_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop()?;
 
-        match operand {
-            Object::Integer(v) => self.push(Object::Integer(-v)),
+        match &*operand {
+            Object::Integer(v) => self.push(Rc::new(Object::Integer(-*v))),
             _ => Err(VMError::UnsupportedNegationType(operand)),
         }
     }
 
-    fn last_popped_stack_elem(&self) -> Object {
+    fn last_popped_stack_elem(&self) -> Rc<Object> {
         self.stack[self.sp].clone()
     }
 
-    fn push(&mut self, obj: Object) -> Result<(), VMError> {
+    fn push(&mut self, obj: Rc<Object>) -> Result<(), VMError> {
         if self.sp >= STACK_SIZE {
             return Err(VMError::StackOverflow());
         }
@@ -508,8 +528,8 @@ impl VM {
     fn push_closure(&mut self, const_index: usize, num_free: usize) -> Result<(), VMError> {
         let constant = self.constants[const_index].clone();
 
-        match constant {
-            Object::CompiledFunction(_, _, _) => {
+        match &*constant {
+            Object::CompiledFunction(func) => {
                 let mut free = Vec::with_capacity(num_free);
 
                 for i in 0..num_free {
@@ -518,9 +538,12 @@ impl VM {
 
                 self.sp -= num_free;
 
-                let closure = Object::Closure(Box::new(constant), free);
+                let closure = Object::Closure(Rc::new(Closure {
+                    func: func.clone(),
+                    free,
+                }));
 
-                self.push(closure)
+                self.push(Rc::new(closure))
             }
             _ => Err(VMError::NonFunction(constant)),
         }
@@ -530,7 +553,7 @@ impl VM {
         self.frames.push(frame);
     }
 
-    fn pop(&mut self) -> Result<Object, VMError> {
+    fn pop(&mut self) -> Result<Rc<Object>, VMError> {
         if self.sp == 0 {
             Err(VMError::StackEmpty())
         } else {
@@ -540,17 +563,26 @@ impl VM {
     }
 
     fn read_u16(&self, index: usize) -> usize {
-        code::read_u16(&self.current_frame().instructions, index)
+        code::read_u16(&self.current_frame().get_instructions(), index)
     }
 
     fn read_u8(&self, index: usize) -> usize {
-        code::read_u8(&self.current_frame().instructions, index)
+        code::read_u8(&self.current_frame().get_instructions(), index)
+    }
+
+    fn execute_current_frame(&self) -> bool {
+        let frame = &self.current_frame();
+        frame.ip < frame.get_instructions().len()
+    }
+
+    fn current_op_code(&self) -> u8 {
+        let frame = &self.current_frame();
+        frame.get_instructions()[frame.ip]
     }
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use crate::{ast::Program, compiler::Compiler, lexer::Lexer, object::Object, parser::Parser};
     use indexmap::IndexMap;
@@ -640,22 +672,22 @@ mod tests {
     #[test]
     fn array_literals() {
         let tests = vec![
-            ("[]", Object::Array(vec![])),
+            ("[]", Object::Array(Rc::new(vec![]))),
             (
                 "[1, 2, 3]",
-                Object::Array(vec![
-                    Object::Integer(1),
-                    Object::Integer(2),
-                    Object::Integer(3),
-                ]),
+                Object::Array(Rc::new(vec![
+                    Rc::new(Object::Integer(1)),
+                    Rc::new(Object::Integer(2)),
+                    Rc::new(Object::Integer(3)),
+                ])),
             ),
             (
                 "[1 + 2, 3 * 4, 5 + 6]",
-                Object::Array(vec![
-                    Object::Integer(3),
-                    Object::Integer(12),
-                    Object::Integer(11),
-                ]),
+                Object::Array(Rc::new(vec![
+                    Rc::new(Object::Integer(3)),
+                    Rc::new(Object::Integer(12)),
+                    Rc::new(Object::Integer(11)),
+                ])),
             ),
         ];
 
@@ -689,15 +721,15 @@ mod tests {
         let mut hash = IndexMap::new();
 
         for (k, v) in pairs {
-            match HashKey::from_object(k) {
+            match HashKey::from_object(&k) {
                 Ok(key) => {
-                    hash.insert(key, v);
+                    hash.insert(key, Rc::new(v));
                 }
                 Err(err) => panic!("{}", err),
             }
         }
 
-        Object::Hash(hash)
+        Object::Hash(Rc::new(hash))
     }
 
     #[test]
@@ -947,10 +979,16 @@ mod tests {
             (r#"last([])"#, Object::Null),
             (
                 r#"rest([1, 2, 3])"#,
-                Object::Array(vec![Object::Integer(2), Object::Integer(3)]),
+                Object::Array(Rc::new(vec![
+                    Rc::new(Object::Integer(2)),
+                    Rc::new(Object::Integer(3)),
+                ])),
             ),
             (r#"rest([])"#, Object::Null),
-            (r#"push([], 1)"#, Object::Array(vec![Object::Integer(1)])),
+            (
+                r#"push([], 1)"#,
+                Object::Array(Rc::new(vec![Rc::new(Object::Integer(1))])),
+            ),
             (r#"first([])"#, Object::Null),
         ];
 
@@ -961,7 +999,7 @@ mod tests {
                 r#"len(1)"#,
                 VMError::Eval(EvalError::UnsupportedArguments(
                     "len".to_owned(),
-                    vec![Object::Integer(1)],
+                    vec![Rc::new(Object::Integer(1))],
                 )),
             ),
             (
@@ -975,21 +1013,21 @@ mod tests {
                 r#"first(1)"#,
                 VMError::Eval(EvalError::UnsupportedArguments(
                     "first".to_owned(),
-                    vec![Object::Integer(1)],
+                    vec![Rc::new(Object::Integer(1))],
                 )),
             ),
             (
                 r#"last(1)"#,
                 VMError::Eval(EvalError::UnsupportedArguments(
                     "last".to_owned(),
-                    vec![Object::Integer(1)],
+                    vec![Rc::new(Object::Integer(1))],
                 )),
             ),
             (
                 r#"push(1, 1)"#,
                 VMError::Eval(EvalError::UnsupportedArguments(
                     "push".to_owned(),
-                    vec![Object::Integer(1), Object::Integer(1)],
+                    vec![Rc::new(Object::Integer(1)), Rc::new(Object::Integer(1))],
                 )),
             ),
         ];
@@ -1092,7 +1130,7 @@ mod tests {
             let mut compiler = Compiler::new();
             match compiler.compile(&program) {
                 Ok(bytecode) => {
-                    let mut vm = VM::new(bytecode);
+                    let mut vm = VM::new(bytecode.constants, bytecode.instructions.to_vec());
 
                     match vm.run() {
                         Ok(_) => assert!(false, "expected failure"),
@@ -1119,11 +1157,11 @@ mod tests {
         let mut compiler = Compiler::new();
 
         let bytecode = compiler.compile(&program)?;
-        let mut vm = VM::new(bytecode);
+        let mut vm = VM::new(bytecode.constants, bytecode.instructions.to_vec());
         let result = vm.run()?;
 
         assert_eq!(
-            expected, result,
+            &expected, &*result,
             "expected {} for '{}' but got {}",
             expected, input, result
         );

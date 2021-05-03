@@ -6,15 +6,16 @@ use crate::object::environment::Environment;
 use crate::object::{EvalError, EvalResult, HashKey, Object};
 
 use indexmap::IndexMap;
+use std::rc::Rc;
 
 pub fn eval(program: &Program, env: &mut Environment) -> EvalResult {
-    let mut result = Object::Null;
+    let mut result = Rc::new(Object::Null);
 
     for statement in &program.statements {
         result = eval_statement(statement, env)?;
 
-        if let Object::Return(value) = result {
-            return Ok(*value);
+        if let Object::Return(value) = &*result.clone() {
+            return Ok(value.clone());
         }
     }
 
@@ -22,12 +23,12 @@ pub fn eval(program: &Program, env: &mut Environment) -> EvalResult {
 }
 
 fn eval_block_statement(block: &BlockStatement, env: &mut Environment) -> EvalResult {
-    let mut res = Object::Null;
+    let mut res = Rc::new(Object::Null);
 
     for statement in &block.statements {
         res = eval_statement(statement, env)?;
 
-        if let Object::Return(_) = res {
+        if let Object::Return(_) = &*res {
             // Don't unwrap it here - want to propagate it back up the call stack
             return Ok(res);
         }
@@ -52,16 +53,16 @@ fn eval_return_expression(possibility: &Option<Expression>, env: &mut Environmen
     match possibility {
         Some(expression) => {
             let result = eval_expression(expression, env)?;
-            Ok(Object::Return(Box::new(result)))
+            Ok(Rc::new(Object::Return(result)))
         }
-        None => Ok(Object::Return(Box::new(Object::Null))),
+        None => Ok(Rc::new(Object::Return(Rc::new(Object::Null)))),
     }
 }
 
 fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult {
     match expression {
-        Expression::IntegerLiteral(v) => Ok(Object::Integer(*v)),
-        Expression::Boolean(b) => Ok(Object::Boolean(*b)),
+        Expression::IntegerLiteral(v) => Ok(Rc::new(Object::Integer(*v))),
+        Expression::Boolean(b) => Ok(Rc::new(Object::Boolean(*b))),
         Expression::Prefix(operator, expression) => {
             eval_prefix_expression(operator, expression, env)
         }
@@ -76,9 +77,9 @@ fn eval_expression(expression: &Expression, env: &mut Environment) -> EvalResult
         Expression::Call(function_exp, arg_expressions) => {
             let function = eval_expression(function_exp, env)?;
             let arguments = eval_expressions(arg_expressions, env)?;
-            apply_function(function, arguments)
+            apply_function(&function, &arguments)
         }
-        Expression::StringLiteral(s) => Ok(Object::String(s.to_string())),
+        Expression::StringLiteral(s) => Ok(Rc::new(Object::String(s.to_string()))),
         Expression::ArrayLiteral(elements) => eval_array_literal(elements, env),
         Expression::IndexExpression(left, index) => eval_index_expression(left, index, env),
         Expression::HashLiteral(hash) => eval_hash_literal(hash, env),
@@ -93,51 +94,61 @@ fn eval_index_expression(
     let left_value = eval_expression(left, env)?;
     let index_value = eval_expression(index, env)?;
 
-    match (left_value, index_value) {
-        (Object::Array(elements), Object::Integer(i)) => {
-            Ok(elements.get(i as usize).cloned().unwrap_or(Object::Null))
-        }
+    match (&*left_value, &*index_value) {
+        (Object::Array(elements), Object::Integer(i)) => Ok(elements
+            .get(*i as usize)
+            .cloned()
+            .unwrap_or_else(|| Rc::new(Object::Null))),
         (Object::Hash(map), key_ish) => eval_hash_index_expression(map, key_ish),
-        (l, i) => Err(EvalError::UnsupportedIndexOperator(l, i)),
+        (l, i) => Err(EvalError::UnsupportedIndexOperator(
+            Rc::new(l.clone()),
+            Rc::new(i.clone()),
+        )),
     }
 }
 
-fn eval_hash_index_expression(map: IndexMap<HashKey, Object>, key_ish: Object) -> EvalResult {
+fn eval_hash_index_expression(
+    map: &Rc<IndexMap<HashKey, Rc<Object>>>,
+    key_ish: &Object,
+) -> EvalResult {
     let key = HashKey::from_object(key_ish)?;
     match map.get(&key) {
         Some(v) => Ok(v.clone()),
-        None => Ok(Object::Null),
+        None => Ok(Rc::new(Object::Null)),
     }
 }
 
-fn apply_function(function: Object, arguments: Vec<Object>) -> EvalResult {
+fn apply_function(function: &Object, arguments: &[Rc<Object>]) -> EvalResult {
     match function {
         Object::Function(params, body, env) => {
             let mut new_env = extend_function_env(params, arguments, &env);
             let evaluated = eval_block_statement(&body, &mut new_env)?;
             unwrap_return_value(evaluated)
         }
-        Object::BuiltIn(func) => func(arguments),
+        Object::BuiltIn(func) => func.apply(arguments),
         _ => Err(EvalError::NotCallable(function.clone())),
     }
 }
 
-fn unwrap_return_value(obj: Object) -> EvalResult {
-    match obj {
-        Object::Return(value) => Ok(*value),
+fn unwrap_return_value(obj: Rc<Object>) -> EvalResult {
+    match &*obj {
+        Object::Return(value) => Ok(value.clone()),
         _ => Ok(obj),
     }
 }
 
 fn extend_function_env(
-    params: Vec<String>,
-    arguments: Vec<Object>,
+    params: &[String],
+    arguments: &[Rc<Object>],
     env: &Environment,
 ) -> Environment {
     let mut result = env.extend();
 
     for (i, p) in params.iter().enumerate() {
-        let arg = arguments.get(i).cloned().unwrap_or(Object::Null);
+        let arg = arguments
+            .get(i)
+            .cloned()
+            .unwrap_or_else(|| Rc::new(Object::Null));
         result.set(p, arg);
     }
 
@@ -146,7 +157,7 @@ fn extend_function_env(
 
 fn eval_array_literal(elements: &[Expression], env: &mut Environment) -> EvalResult {
     let values = eval_expressions(elements, env)?;
-    Ok(Object::Array(values))
+    Ok(Rc::new(Object::Array(Rc::new(values))))
 }
 
 fn eval_hash_literal(hash: &HashLiteral, env: &mut Environment) -> EvalResult {
@@ -155,14 +166,17 @@ fn eval_hash_literal(hash: &HashLiteral, env: &mut Environment) -> EvalResult {
     for (k, v) in &hash.pairs {
         let key = eval_expression(&k, env)?;
         let value = eval_expression(&v, env)?;
-        let hash_key = HashKey::from_object(key)?;
+        let hash_key = HashKey::from_object(&key)?;
         map.insert(hash_key, value);
     }
 
-    Ok(Object::Hash(map))
+    Ok(Rc::new(Object::Hash(Rc::new(map))))
 }
 
-fn eval_expressions(exps: &[Expression], env: &mut Environment) -> Result<Vec<Object>, EvalError> {
+fn eval_expressions(
+    exps: &[Expression],
+    env: &mut Environment,
+) -> Result<Vec<Rc<Object>>, EvalError> {
     let mut results = vec![];
 
     for exp in exps {
@@ -177,11 +191,11 @@ fn eval_function(
     body: &BlockStatement,
     env: &mut Environment,
 ) -> EvalResult {
-    Ok(Object::Function(
+    Ok(Rc::new(Object::Function(
         parameters.to_owned(),
         body.clone(),
         env.clone(),
-    ))
+    )))
 }
 
 fn eval_identifier(name: &str, env: &Environment) -> EvalResult {
@@ -189,8 +203,8 @@ fn eval_identifier(name: &str, env: &Environment) -> EvalResult {
         return Ok(r);
     }
 
-    if let Some(r) = builtins::lookup(name) {
-        return Ok(r);
+    if let Some(r) = builtins::BuiltIn::lookup(name) {
+        return Ok(Rc::new(r));
     }
 
     Err(EvalError::IdentifierNotFound(name.to_string()))
@@ -204,9 +218,9 @@ fn eval_prefix_expression(
     let obj = eval_expression(expression, env)?;
 
     match operator {
-        PrefixOperator::Bang => Ok(Object::Boolean(!obj.is_truthy())),
-        PrefixOperator::Minus => match obj {
-            Object::Integer(v) => Ok(Object::Integer(-v)),
+        PrefixOperator::Bang => Ok(Rc::new(Object::Boolean(!obj.is_truthy()))),
+        PrefixOperator::Minus => match *obj {
+            Object::Integer(v) => Ok(Rc::new(Object::Integer(-v))),
             _ => Err(EvalError::UnsupportedPrefixOperator(operator.clone(), obj)),
         },
     }
@@ -221,37 +235,41 @@ fn eval_infix_expression(
     let left_obj = eval_expression(left_exp, env)?;
     let right_obj = eval_expression(right_exp, env)?;
 
-    match (left_obj, right_obj) {
+    match (&*left_obj, &*right_obj) {
         (Object::Integer(left), Object::Integer(right)) => {
-            eval_integer_infix_expressions(operator, left, right)
+            eval_integer_infix_expressions(operator, *left, *right)
         }
         (Object::Boolean(left), Object::Boolean(right)) => {
-            eval_boolean_infix_expressions(operator, left, right)
+            eval_boolean_infix_expressions(operator, *left, *right)
         }
         (Object::String(left), Object::String(right)) => {
-            eval_string_infix_expression(operator, left, right)
+            eval_string_infix_expression(operator, left.clone(), &*right)
         }
-        (left, right) => Err(EvalError::TypeMismatch(operator.clone(), left, right)),
+        (left, right) => Err(EvalError::TypeMismatch(
+            operator.clone(),
+            Rc::new(left.clone()),
+            Rc::new(right.clone()),
+        )),
     }
 }
 
 fn eval_integer_infix_expressions(operator: &InfixOperator, left: i64, right: i64) -> EvalResult {
     match operator {
-        InfixOperator::Eq => Ok(Object::Boolean(left == right)),
-        InfixOperator::NotEq => Ok(Object::Boolean(left != right)),
-        InfixOperator::Lt => Ok(Object::Boolean(left < right)),
-        InfixOperator::Gt => Ok(Object::Boolean(left > right)),
-        InfixOperator::Plus => Ok(Object::Integer(left + right)),
-        InfixOperator::Minus => Ok(Object::Integer(left - right)),
-        InfixOperator::Asterisk => Ok(Object::Integer(left * right)),
-        InfixOperator::Slash => Ok(Object::Integer(left / right)),
+        InfixOperator::Eq => Ok(Rc::new(Object::Boolean(left == right))),
+        InfixOperator::NotEq => Ok(Rc::new(Object::Boolean(left != right))),
+        InfixOperator::Lt => Ok(Rc::new(Object::Boolean(left < right))),
+        InfixOperator::Gt => Ok(Rc::new(Object::Boolean(left > right))),
+        InfixOperator::Plus => Ok(Rc::new(Object::Integer(left + right))),
+        InfixOperator::Minus => Ok(Rc::new(Object::Integer(left - right))),
+        InfixOperator::Asterisk => Ok(Rc::new(Object::Integer(left * right))),
+        InfixOperator::Slash => Ok(Rc::new(Object::Integer(left / right))),
     }
 }
 
 fn eval_boolean_infix_expressions(operator: &InfixOperator, left: bool, right: bool) -> EvalResult {
     match operator {
-        InfixOperator::Eq => Ok(Object::Boolean(left == right)),
-        InfixOperator::NotEq => Ok(Object::Boolean(left != right)),
+        InfixOperator::Eq => Ok(Rc::new(Object::Boolean(left == right))),
+        InfixOperator::NotEq => Ok(Rc::new(Object::Boolean(left != right))),
         _ => Err(EvalError::UnsupportedInfixOperator(
             operator.clone(),
             Object::Boolean(left),
@@ -260,17 +278,13 @@ fn eval_boolean_infix_expressions(operator: &InfixOperator, left: bool, right: b
     }
 }
 
-fn eval_string_infix_expression(
-    operator: &InfixOperator,
-    left: String,
-    right: String,
-) -> EvalResult {
+fn eval_string_infix_expression(operator: &InfixOperator, left: String, right: &str) -> EvalResult {
     match operator {
-        InfixOperator::Plus => Ok(Object::String(left + &right)),
+        InfixOperator::Plus => Ok(Rc::new(Object::String(left + right))),
         _ => Err(EvalError::UnsupportedInfixOperator(
             operator.clone(),
             Object::String(left),
-            Object::String(right),
+            Object::String(String::from(right)),
         )),
     }
 }
@@ -291,7 +305,7 @@ fn eval_if_expression(
         return eval_block_statement(&alt, env);
     }
 
-    Ok(Object::Null)
+    Ok(Rc::new(Object::Null))
 }
 
 #[cfg(test)]

@@ -1,7 +1,10 @@
 use crate::ast::{BlockStatement, InfixOperator, PrefixOperator};
 use crate::code::{Instructions, InstructionsFns};
+use crate::object::builtins::BuiltIn;
 pub use crate::object::environment::Environment;
 use indexmap::IndexMap;
+use std::fmt::Formatter;
+use std::rc::Rc;
 use std::{fmt, hash::Hash};
 
 pub mod builtins;
@@ -14,14 +17,14 @@ pub enum Object {
     Boolean(bool),
     /// Closure wraps a CompiledFunction and any free variables that are referenced. See
     /// https://en.wikipedia.org/wiki/Free_variables_and_bound_variables
-    Closure(Box<Object>, Vec<Object>),
-    CompiledFunction(Instructions, usize, usize),
-    Return(Box<Object>),
+    Closure(Rc<Closure>),
+    CompiledFunction(Rc<CompiledFunction>),
+    Return(Rc<Object>),
     Function(Vec<String>, BlockStatement, Environment),
     String(String),
     BuiltIn(BuiltIn),
-    Array(Vec<Object>),
-    Hash(IndexMap<HashKey, Object>),
+    Array(Rc<Vec<Rc<Object>>>),
+    Hash(Rc<IndexMap<HashKey, Rc<Object>>>),
 }
 
 impl Hash for Object {
@@ -30,41 +33,14 @@ impl Hash for Object {
             Object::Null => 37.hash(state),
             Object::Integer(i) => i.hash(state),
             Object::Boolean(b) => b.hash(state),
-            Object::CompiledFunction(bytes, num_locals, num_parameters) => {
-                bytes.hash(state);
-                num_locals.hash(state);
-                num_parameters.hash(state);
-            }
-            Object::Return(o) => {
-                19.hash(state);
-                o.hash(state);
-            }
-            Object::Function(parameters, body, env) => {
-                for p in parameters {
-                    p.hash(state);
-                }
-                body.hash(state);
-                env.hash(state);
-            }
+            Object::CompiledFunction(_compiled_function) => panic!("Can't hash a CompiledFunction"),
+            Object::Return(_o) => panic!("Can't hash a Return"),
+            Object::Function(_parameters, _body, _env) => panic!("Can't hash a Function"),
             Object::String(s) => s.hash(state),
-            Object::BuiltIn(func) => func.hash(state),
-            Object::Array(elements) => {
-                for e in elements {
-                    e.hash(state);
-                }
-            }
-            Object::Hash(map) => {
-                for (k, v) in map {
-                    k.hash(state);
-                    v.hash(state);
-                }
-            }
-            Object::Closure(compiled_function, free) => {
-                compiled_function.hash(state);
-                for f in free {
-                    f.hash(state);
-                }
-            }
+            Object::BuiltIn(_func) => panic!("Can't hash a BuiltIn"),
+            Object::Array(_elements) => panic!("Can't hash an Array"),
+            Object::Hash(_map) => panic!("Can't hash a Hash"),
+            Object::Closure(_closure) => panic!("Can't hash a Closure"),
         }
     }
 }
@@ -99,8 +75,8 @@ impl fmt::Display for Object {
             Object::Null => write!(f, "null"),
             Object::Integer(v) => write!(f, "{}", v),
             Object::Boolean(b) => write!(f, "{}", b),
-            Object::CompiledFunction(bytes, _num_locals, _num_parameters) => {
-                write!(f, "{}", bytes.to_string())
+            Object::CompiledFunction(compiled_function) => {
+                write!(f, "{}", compiled_function.to_string())
             }
             Object::Return(obj) => write!(f, "{}", obj),
             Object::Function(parameters, body, _) => {
@@ -125,7 +101,7 @@ impl fmt::Display for Object {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
-            Object::Closure(compiled_function, _free) => write!(f, "{}", compiled_function),
+            Object::Closure(closure) => write!(f, "{}", closure),
         }
     }
 }
@@ -142,7 +118,7 @@ impl Object {
     pub fn type_name(&self) -> &str {
         match self {
             Object::Boolean(_) => "BOOLEAN",
-            Object::CompiledFunction(_, _, _) => "COMPILED_FUNCTION",
+            Object::CompiledFunction(_) => "COMPILED_FUNCTION",
             Object::Integer(_) => "INTEGER",
             Object::Null => "NULL",
             Object::Return(_) => "RETURN",
@@ -151,8 +127,42 @@ impl Object {
             Object::BuiltIn(_) => "BUILTIN",
             Object::Array(_) => "ARRAY",
             Object::Hash(_) => "HASH",
-            Object::Closure(_, _) => "CLOSURE",
+            Object::Closure(_) => "CLOSURE",
         }
+    }
+}
+
+#[derive(Eq, PartialEq, Debug)]
+pub struct Closure {
+    pub func: Rc<CompiledFunction>,
+    pub free: Vec<Rc<Object>>,
+}
+
+impl fmt::Display for Closure {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{} [{}]",
+            self.func,
+            self.free
+                .iter()
+                .map(|v| v.to_string())
+                .collect::<Vec<String>>()
+                .join(", ")
+        )
+    }
+}
+
+#[derive(Eq, PartialEq, Clone, Debug)]
+pub struct CompiledFunction {
+    pub instructions: Instructions,
+    pub num_locals: usize,
+    pub num_parameters: usize,
+}
+
+impl fmt::Display for CompiledFunction {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.instructions.to_string())
     }
 }
 
@@ -174,29 +184,29 @@ impl fmt::Display for HashKey {
 }
 
 impl HashKey {
-    pub fn from_object(obj: Object) -> Result<HashKey, EvalError> {
+    pub fn from_object(obj: &Object) -> Result<HashKey, EvalError> {
         match obj {
-            Object::Boolean(b) => Ok(HashKey::Boolean(b)),
-            Object::Integer(i) => Ok(HashKey::Integer(i)),
-            Object::String(s) => Ok(HashKey::String(s)),
-            _ => Err(EvalError::UnusableHashKey(obj)),
+            Object::Boolean(b) => Ok(HashKey::Boolean(*b)),
+            Object::Integer(i) => Ok(HashKey::Integer(*i)),
+            Object::String(s) => Ok(HashKey::String(s.to_owned())),
+            _ => Err(EvalError::UnusableHashKey(Rc::new(obj.clone()))),
         }
     }
 }
 
-pub type EvalResult = std::result::Result<Object, EvalError>;
-pub type BuiltIn = fn(Vec<Object>) -> EvalResult;
+pub type EvalResult = std::result::Result<Rc<Object>, EvalError>;
+pub type BuiltInFunction = fn(&Vec<Rc<Object>>) -> EvalResult;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
     IdentifierNotFound(String),
     NotCallable(Object),
-    UnsupportedArguments(String, Vec<Object>),
+    UnsupportedArguments(String, Vec<Rc<Object>>),
     UnsupportedInfixOperator(InfixOperator, Object, Object),
-    UnsupportedIndexOperator(Object, Object),
-    UnsupportedPrefixOperator(PrefixOperator, Object),
-    UnusableHashKey(Object),
-    TypeMismatch(InfixOperator, Object, Object),
+    UnsupportedIndexOperator(Rc<Object>, Rc<Object>),
+    UnsupportedPrefixOperator(PrefixOperator, Rc<Object>),
+    UnusableHashKey(Rc<Object>),
+    TypeMismatch(InfixOperator, Rc<Object>, Rc<Object>),
     WrongArgumentCount { expected: usize, given: usize },
 }
 
@@ -246,7 +256,7 @@ impl fmt::Display for EvalError {
     }
 }
 
-pub fn assert_argument_count(expected: usize, arguments: &[Object]) -> Result<(), EvalError> {
+pub fn assert_argument_count(expected: usize, arguments: &[Rc<Object>]) -> Result<(), EvalError> {
     if arguments.len() != expected {
         return Err(EvalError::WrongArgumentCount {
             expected,

@@ -29,8 +29,8 @@ impl SymbolTable {
     pub fn new_with_builtins() -> Self {
         let mut res = Self::default();
 
-        for (i, b) in builtins::BUILTINS.iter().enumerate() {
-            res.define_builtin(i, b.name);
+        for (i, b) in builtins::BuiltIn::iterator().enumerate() {
+            res.define_builtin(i, &b.to_string());
         }
 
         res

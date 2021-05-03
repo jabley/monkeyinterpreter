@@ -1,110 +1,152 @@
 use super::{assert_argument_count, EvalError, EvalResult, Object};
+use std::fmt;
+use std::fmt::Formatter;
+use std::rc::Rc;
+use std::slice::Iter;
 
-#[derive(PartialEq, Debug)]
-pub struct BuiltIn {
-    pub name: &'static str,
-    pub builtin: Object,
+#[repr(u8)]
+#[derive(PartialOrd, PartialEq, Eq, Debug, Hash, Clone, Copy)]
+pub enum BuiltIn {
+    Len,
+    Puts,
+    First,
+    Last,
+    Rest,
+    Push,
 }
 
-/// BUILTINS provides a stable iteration order so that we can define index-based lookups in
-/// bytecode to built-in functions. We retain the Go-implementation ordering.
-pub const BUILTINS: &[BuiltIn] = &[
-    BuiltIn {
-        name: "len",
-        builtin: Object::BuiltIn(len),
-    },
-    BuiltIn {
-        name: "puts",
-        builtin: Object::BuiltIn(puts),
-    },
-    BuiltIn {
-        name: "first",
-        builtin: Object::BuiltIn(first),
-    },
-    BuiltIn {
-        name: "last",
-        builtin: Object::BuiltIn(last),
-    },
-    BuiltIn {
-        name: "rest",
-        builtin: Object::BuiltIn(rest),
-    },
-    BuiltIn {
-        name: "push",
-        builtin: Object::BuiltIn(push),
-    },
-];
-
-pub fn lookup(name: &str) -> Option<Object> {
-    match name {
-        "len" => Some(Object::BuiltIn(len)),
-        "first" => Some(Object::BuiltIn(first)),
-        "last" => Some(Object::BuiltIn(last)),
-        "rest" => Some(Object::BuiltIn(rest)),
-        "push" => Some(Object::BuiltIn(push)),
-        "puts" => Some(Object::BuiltIn(puts)),
-        _ => None,
+impl fmt::Display for BuiltIn {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            BuiltIn::Len => write!(f, "len"),
+            BuiltIn::Puts => write!(f, "puts"),
+            BuiltIn::First => write!(f, "first"),
+            BuiltIn::Last => write!(f, "last"),
+            BuiltIn::Rest => write!(f, "rest"),
+            BuiltIn::Push => write!(f, "push"),
+        }
     }
 }
 
-fn len(args: Vec<Object>) -> EvalResult {
-    assert_argument_count(1, &args)?;
+impl BuiltIn {
+    pub fn iterator() -> Iter<'static, BuiltIn> {
+        static BUILTINS: [BuiltIn; 6] = [
+            BuiltIn::Len,
+            BuiltIn::Puts,
+            BuiltIn::First,
+            BuiltIn::Last,
+            BuiltIn::Rest,
+            BuiltIn::Push,
+        ];
+        BUILTINS.iter()
+    }
 
-    match &args[0] {
-        Object::String(value) => Ok(Object::Integer(value.len() as i64)),
-        Object::Array(elements) => Ok(Object::Integer(elements.len() as i64)),
-        _ => Err(EvalError::UnsupportedArguments("len".to_string(), args)),
+    pub fn lookup(name: &str) -> Option<Object> {
+        match name {
+            "len" => Some(Object::BuiltIn(BuiltIn::Len)),
+            "puts" => Some(Object::BuiltIn(BuiltIn::Puts)),
+            "first" => Some(Object::BuiltIn(BuiltIn::First)),
+            "last" => Some(Object::BuiltIn(BuiltIn::Last)),
+            "rest" => Some(Object::BuiltIn(BuiltIn::Rest)),
+            "push" => Some(Object::BuiltIn(BuiltIn::Push)),
+            _ => None,
+        }
+    }
+
+    pub fn apply(&self, args: &[Rc<Object>]) -> EvalResult {
+        match self {
+            BuiltIn::Len => len(args),
+            BuiltIn::Puts => puts(args),
+            BuiltIn::First => first(args),
+            BuiltIn::Last => last(args),
+            BuiltIn::Rest => rest(args),
+            BuiltIn::Push => push(args),
+        }
     }
 }
 
-fn first(args: Vec<Object>) -> EvalResult {
+fn len(args: &[Rc<Object>]) -> EvalResult {
     assert_argument_count(1, &args)?;
 
-    match &args[0] {
-        Object::Array(elements) => Ok(elements.first().cloned().unwrap_or(Object::Null)),
-        _ => Err(EvalError::UnsupportedArguments("first".to_string(), args)),
+    match &*args[0] {
+        Object::String(s) => Ok(Rc::new(Object::Integer(s.len() as i64))),
+        Object::Array(elements) => Ok(Rc::new(Object::Integer(elements.len() as i64))),
+        _ => Err(EvalError::UnsupportedArguments(
+            "len".to_string(),
+            args.to_vec(),
+        )),
     }
 }
 
-fn last(args: Vec<Object>) -> EvalResult {
+fn first(args: &[Rc<Object>]) -> EvalResult {
     assert_argument_count(1, &args)?;
 
-    match &args[0] {
-        Object::Array(elements) => Ok(elements.last().cloned().unwrap_or(Object::Null)),
-        _ => Err(EvalError::UnsupportedArguments("last".to_string(), args)),
+    match &*args[0] {
+        Object::Array(elements) => Ok(elements
+            .first()
+            .cloned()
+            .unwrap_or_else(|| Rc::new(Object::Null))),
+        _ => Err(EvalError::UnsupportedArguments(
+            "first".to_string(),
+            args.to_vec(),
+        )),
     }
 }
 
-fn rest(args: Vec<Object>) -> EvalResult {
+fn last(args: &[Rc<Object>]) -> EvalResult {
     assert_argument_count(1, &args)?;
 
-    match &args[0] {
+    match &*args[0] {
+        Object::Array(elements) => Ok(elements
+            .last()
+            .cloned()
+            .unwrap_or_else(|| Rc::new(Object::Null))),
+        _ => Err(EvalError::UnsupportedArguments(
+            "last".to_string(),
+            args.to_vec(),
+        )),
+    }
+}
+
+fn rest(args: &[Rc<Object>]) -> EvalResult {
+    assert_argument_count(1, &args)?;
+
+    match &*args[0] {
         Object::Array(elements) => Ok(if elements.is_empty() {
-            Object::Null
+            Rc::new(Object::Null)
         } else {
-            Object::Array(elements[1..].to_vec())
+            Rc::new(Object::Array(Rc::new(elements[1..].to_owned())))
         }),
-        _ => Err(EvalError::UnsupportedArguments("rest".to_string(), args)),
+        _ => Err(EvalError::UnsupportedArguments(
+            "rest".to_string(),
+            args.to_vec(),
+        )),
     }
 }
 
-fn push(args: Vec<Object>) -> EvalResult {
+fn push(args: &[Rc<Object>]) -> EvalResult {
     assert_argument_count(2, &args)?;
 
-    match (&args[0], &args[1]) {
-        (Object::Array(elements), value) => {
-            let mut new_elements = elements.clone();
-            new_elements.push(value.clone());
-            Ok(Object::Array(new_elements))
+    let array = &*Rc::clone(args.first().unwrap());
+    let obj = Rc::clone(args.last().unwrap());
+
+    match array {
+        Object::Array(elements) => {
+            let mut new_elements = elements.to_vec();
+            new_elements.push(obj);
+            Ok(Rc::new(Object::Array(Rc::new(new_elements.to_vec()))))
         }
-        _ => Err(EvalError::UnsupportedArguments("push".to_string(), args)),
+        _ => Err(EvalError::UnsupportedArguments(
+            "push".to_string(),
+            args.to_vec(),
+        )),
     }
 }
 
-fn puts(args: Vec<Object>) -> EvalResult {
+fn puts(args: &[Rc<Object>]) -> EvalResult {
     for arg in args {
         println!("{}", arg);
     }
 
-    Ok(Object::Null)
+    Ok(Rc::new(Object::Null))
 }

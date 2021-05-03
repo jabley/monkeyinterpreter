@@ -7,7 +7,7 @@ fn main() {
 
     match c.compile(&program) {
         Ok(bytecode) => {
-            let mut vm = VM::new(bytecode);
+            let mut vm = VM::new(bytecode.constants, bytecode.instructions.to_vec());
 
             match vm.run() {
                 Ok(obj) => println!("Result: {}", obj.to_string()),
