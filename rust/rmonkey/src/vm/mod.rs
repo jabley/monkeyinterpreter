@@ -79,6 +79,10 @@ pub struct VM<'a> {
     sp: usize, // aka stack pointer. Always points to the next value. Top of stack is `stack[sp-1]`
 
     frames: Vec<Frame>,
+
+    const_true: Rc<Object>,
+    const_false: Rc<Object>,
+    const_null: Rc<Object>,
 }
 
 pub fn new_globals() -> Vec<Rc<Object>> {
@@ -117,6 +121,9 @@ impl<'a> VM<'a> {
             stack,
             sp: 0,
             frames,
+            const_true: Rc::new(Object::Boolean(true)),
+            const_false: Rc::new(Object::Boolean(false)),
+            const_null: Rc::new(Object::Null),
         }
     }
 
@@ -134,8 +141,9 @@ impl<'a> VM<'a> {
 
     pub fn run(&mut self) -> Result<Rc<Object>, VMError> {
         while self.execute_current_frame() {
-            let ip = self.current_frame().ip;
-            let op_code = self.current_op_code();
+            let frame = self.current_frame();
+            let ip = frame.ip;
+            let op_code = frame.get_instructions()[ip];
             let op = Op::lookup_op(op_code);
 
             match op {
@@ -143,8 +151,8 @@ impl<'a> VM<'a> {
                 Some(Op::Add) | Some(Op::Sub) | Some(Op::Mul) | Some(Op::Div) => {
                     self.execute_binary_operation(op.unwrap())?
                 }
-                Some(Op::True) => self.push(Rc::new(Object::Boolean(true)))?,
-                Some(Op::False) => self.push(Rc::new(Object::Boolean(false)))?,
+                Some(Op::True) => self.push(self.const_true.clone())?,
+                Some(Op::False) => self.push(self.const_false.clone())?,
                 Some(Op::Pop) => {
                     self.pop()?;
                 }
@@ -155,7 +163,7 @@ impl<'a> VM<'a> {
                 Some(Op::Minus) => self.execute_minus_operator()?,
                 Some(Op::Jump) => self.unconditional_jump(ip),
                 Some(Op::JumpNotTruthy) => self.conditional_jump(ip)?,
-                Some(Op::Null) => self.push(Rc::new(Object::Null))?,
+                Some(Op::Null) => self.push(self.const_null.clone())?,
                 Some(Op::SetGlobal) => self.set_global(ip)?,
                 Some(Op::GetGlobal) => self.get_global(ip)?,
                 Some(Op::Array) => self.load_array(ip)?,
@@ -186,7 +194,7 @@ impl<'a> VM<'a> {
 
     fn build_array(&self, start: usize, end: usize) -> Result<Object, VMError> {
         let mut elements = Vec::with_capacity(end - start);
-        elements.resize(elements.capacity(), Rc::new(Object::Null));
+        elements.resize(elements.capacity(), self.const_null.clone());
 
         elements[0..(end - start)].clone_from_slice(&self.stack[start..end]);
 
@@ -314,7 +322,7 @@ impl<'a> VM<'a> {
         let return_value = if has_return_value {
             self.pop()?
         } else {
-            Rc::new(Object::Null)
+            self.const_null.clone()
         };
 
         // Pop the frame and update the stack pointer. The additional 1 means that we don't
@@ -392,7 +400,7 @@ impl<'a> VM<'a> {
         let max = (elements.len() as i64) - 1;
 
         if index < 0 || index > max {
-            self.push(Rc::new(Object::Null))
+            self.push(self.const_null.clone())
         } else {
             self.push(elements[index as usize].clone())
         }
@@ -401,7 +409,11 @@ impl<'a> VM<'a> {
     fn execute_bang_operator(&mut self) -> Result<(), VMError> {
         let operand = self.pop()?;
 
-        self.push(Rc::new(Object::Boolean(!operand.is_truthy())))
+        if !operand.is_truthy() {
+            self.push(self.const_true.clone())
+        } else {
+            self.push(self.const_false.clone())
+        }
     }
 
     fn execute_binary_operation(&mut self, op: Op) -> Result<(), VMError> {
@@ -450,8 +462,20 @@ impl<'a> VM<'a> {
                 self.execute_integer_comparison(op, left, right)
             }
             _ => match op {
-                Op::Equal => self.push(Rc::new(Object::Boolean(left.eq(&right)))),
-                Op::NotEqual => self.push(Rc::new(Object::Boolean(!left.eq(&right)))),
+                Op::Equal => {
+                    if left.eq(&right) {
+                        self.push(self.const_true.clone())
+                    } else {
+                        self.push(self.const_false.clone())
+                    }
+                }
+                Op::NotEqual => {
+                    if !left.eq(&right) {
+                        self.push(self.const_true.clone())
+                    } else {
+                        self.push(self.const_false.clone())
+                    }
+                }
                 _ => Err(VMError::UnknownOperation(op)),
             },
         }
@@ -479,7 +503,7 @@ impl<'a> VM<'a> {
         let hash_key = HashKey::from_object(key).or_else(|e| Err(VMError::Eval(e)))?;
         match map.get(&hash_key) {
             Some(v) => self.push(v.clone()),
-            None => self.push(Rc::new(Object::Null)),
+            None => self.push(self.const_null.clone()),
         }
     }
 
@@ -490,9 +514,27 @@ impl<'a> VM<'a> {
         right: &i64,
     ) -> Result<(), VMError> {
         match op {
-            Op::Equal => self.push(Rc::new(Object::Boolean(left == right))),
-            Op::NotEqual => self.push(Rc::new(Object::Boolean(left != right))),
-            Op::GreaterThan => self.push(Rc::new(Object::Boolean(left > right))),
+            Op::Equal => {
+                if left == right {
+                    self.push(self.const_true.clone())
+                } else {
+                    self.push(self.const_false.clone())
+                }
+            }
+            Op::NotEqual => {
+                if left != right {
+                    self.push(self.const_true.clone())
+                } else {
+                    self.push(self.const_false.clone())
+                }
+            }
+            Op::GreaterThan => {
+                if left > right {
+                    self.push(self.const_true.clone())
+                } else {
+                    self.push(self.const_false.clone())
+                }
+            }
             _ => Err(VMError::UnknownOperation(op)),
         }
     }
@@ -573,11 +615,6 @@ impl<'a> VM<'a> {
     fn execute_current_frame(&self) -> bool {
         let frame = &self.current_frame();
         frame.ip < frame.get_instructions().len()
-    }
-
-    fn current_op_code(&self) -> u8 {
-        let frame = &self.current_frame();
-        frame.get_instructions()[frame.ip]
     }
 }
 
