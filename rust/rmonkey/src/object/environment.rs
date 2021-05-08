@@ -118,10 +118,7 @@ impl Environment {
                 node.borrow()
                     .next
                     .as_ref()
-                    .and_then(|outer| match outer.borrow().store.get(key) {
-                        Some(value) => Some(value.clone()),
-                        _ => None,
-                    })
+                    .and_then(|outer| outer.borrow().store.get(key).cloned())
             }),
         }
     }

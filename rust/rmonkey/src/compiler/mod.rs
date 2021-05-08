@@ -64,9 +64,10 @@ pub struct Compiler {
 
 impl Compiler {
     pub fn new() -> Self {
-        let mut res: Self = Default::default();
-
-        res.symbol_table = SymbolTable::new_with_builtins();
+        let mut res = Compiler {
+            symbol_table: SymbolTable::new_with_builtins(),
+            ..Default::default()
+        };
 
         let main_scope = CompilationScope::new();
 
@@ -1441,7 +1442,7 @@ mod tests {
                     expect_instructions(expected_instructions, &bytecode.instructions);
                     expect_constants(expected_constants, bytecode.constants.borrow());
                 }
-                Err(e) => panic!(e),
+                Err(e) => panic!("{}", e),
             }
         }
     }

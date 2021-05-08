@@ -210,7 +210,7 @@ impl<'a> VM<'a> {
             let key = self.stack[i].clone();
             let value = self.stack[i + 1].clone();
 
-            let hash_key = HashKey::from_object(&key).or_else(|e| Err(VMError::Eval(e)))?;
+            let hash_key = HashKey::from_object(&key).map_err(VMError::Eval)?;
             hash.insert(hash_key, value);
             i += 2;
         }
@@ -500,7 +500,7 @@ impl<'a> VM<'a> {
         map: &Rc<IndexMap<HashKey, Rc<Object>>>,
         key: &Object,
     ) -> Result<(), VMError> {
-        let hash_key = HashKey::from_object(key).or_else(|e| Err(VMError::Eval(e)))?;
+        let hash_key = HashKey::from_object(key).map_err(VMError::Eval)?;
         match map.get(&hash_key) {
             Some(v) => self.push(v.clone()),
             None => self.push(self.const_null.clone()),

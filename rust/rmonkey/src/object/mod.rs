@@ -195,7 +195,6 @@ impl HashKey {
 }
 
 pub type EvalResult = std::result::Result<Rc<Object>, EvalError>;
-pub type BuiltInFunction = fn(&Vec<Rc<Object>>) -> EvalResult;
 
 #[derive(Debug, PartialEq)]
 pub enum EvalError {
