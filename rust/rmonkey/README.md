@@ -8,18 +8,18 @@ The interpreter is around 4 times slower than the VM version.
     > cargo bench
         Finished bench [optimized] target(s) in 0.14s
          Running target/release/deps/my_benchmark-fc933bad66fbb0f8
-    fib 18 (Interpreter)    time:   [14.487 ms 14.567 ms 14.658 ms]
+    fib 18 (Interpreter)    time:   [14.045 ms 14.102 ms 14.163 ms]
 
-    fib 18 (VM)             time:   [2.7717 ms 2.7843 ms 2.7975 ms]
+    fib 18 (VM)             time:   [2.3659 ms 2.3743 ms 2.3830 ms]
 
 And the Rust VM is [slightly slower than the Go VM](../../go/src/README.md).
 
     > time ./target/release/vm-flamegraph
     Result: 9227465
 
-    real    0m9.258s
-    user    0m9.130s
-    sys     0m0.028s
+    real	0m7.590s
+    user	0m7.552s
+    sys     0m0.019s
 
 I would put this down to various things:
 
