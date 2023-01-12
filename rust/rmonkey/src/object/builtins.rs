@@ -66,7 +66,7 @@ impl BuiltIn {
 }
 
 fn len(args: &[Rc<Object>]) -> EvalResult {
-    assert_argument_count(1, &args)?;
+    assert_argument_count(1, args)?;
 
     match &*args[0] {
         Object::String(s) => Ok(Rc::new(Object::Integer(s.len() as i64))),
@@ -79,7 +79,7 @@ fn len(args: &[Rc<Object>]) -> EvalResult {
 }
 
 fn first(args: &[Rc<Object>]) -> EvalResult {
-    assert_argument_count(1, &args)?;
+    assert_argument_count(1, args)?;
 
     match &*args[0] {
         Object::Array(elements) => Ok(elements
@@ -94,7 +94,7 @@ fn first(args: &[Rc<Object>]) -> EvalResult {
 }
 
 fn last(args: &[Rc<Object>]) -> EvalResult {
-    assert_argument_count(1, &args)?;
+    assert_argument_count(1, args)?;
 
     match &*args[0] {
         Object::Array(elements) => Ok(elements
@@ -109,7 +109,7 @@ fn last(args: &[Rc<Object>]) -> EvalResult {
 }
 
 fn rest(args: &[Rc<Object>]) -> EvalResult {
-    assert_argument_count(1, &args)?;
+    assert_argument_count(1, args)?;
 
     match &*args[0] {
         Object::Array(elements) => Ok(if elements.is_empty() {
@@ -125,7 +125,7 @@ fn rest(args: &[Rc<Object>]) -> EvalResult {
 }
 
 fn push(args: &[Rc<Object>]) -> EvalResult {
-    assert_argument_count(2, &args)?;
+    assert_argument_count(2, args)?;
 
     let array = &*Rc::clone(args.first().unwrap());
     let obj = Rc::clone(args.last().unwrap());

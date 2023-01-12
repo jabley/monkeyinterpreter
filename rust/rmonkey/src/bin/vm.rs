@@ -10,11 +10,11 @@ fn main() {
             let mut vm = VM::new(bytecode.constants, bytecode.instructions.to_vec());
 
             match vm.run() {
-                Ok(obj) => println!("Result: {}", obj.to_string()),
-                Err(e) => println!("Unexpected error: {}", e.to_string()),
+                Ok(obj) => println!("Result: {}", obj),
+                Err(e) => println!("Unexpected error: {}", e),
             }
         }
-        Err(e) => println!("Unexpected error: {}", e.to_string()),
+        Err(e) => println!("Unexpected error: {}", e),
     }
 }
 

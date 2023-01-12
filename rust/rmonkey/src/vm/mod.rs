@@ -380,7 +380,7 @@ impl<'a> VM<'a> {
     }
 
     fn current_frame(&self) -> &Frame {
-        &self.frames.last().unwrap()
+        self.frames.last().unwrap()
     }
 
     fn increment_ip(&mut self, diff: usize) {
@@ -488,7 +488,7 @@ impl<'a> VM<'a> {
     ) -> Result<(), VMError> {
         match (&*left, &*index) {
             (Object::Array(elements), Object::Integer(i)) => {
-                self.execute_array_index(&elements, *i)
+                self.execute_array_index(elements, *i)
             }
             (Object::Hash(map), key) => self.execute_hash_index(map, key),
             _ => Err(VMError::IndexNotSupported(left)),
@@ -605,11 +605,11 @@ impl<'a> VM<'a> {
     }
 
     fn read_u16(&self, index: usize) -> usize {
-        code::read_u16(&self.current_frame().get_instructions(), index)
+        code::read_u16(self.current_frame().get_instructions(), index)
     }
 
     fn read_u8(&self, index: usize) -> usize {
-        code::read_u8(&self.current_frame().get_instructions(), index)
+        code::read_u8(self.current_frame().get_instructions(), index)
     }
 
     fn execute_current_frame(&self) -> bool {

@@ -105,7 +105,7 @@ impl Compiler {
     fn compile_statement(&mut self, stmt: &Statement) -> Result<(), CompilerError> {
         match stmt {
             Statement::Expression(exp) => {
-                self.compile_expression(&exp)?;
+                self.compile_expression(exp)?;
                 self.emit(Op::Pop, &[]);
             }
             Statement::Let(ident, exp) => {

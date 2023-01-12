@@ -121,8 +121,8 @@ fn eval_hash_index_expression(
 fn apply_function(function: &Object, arguments: &[Rc<Object>]) -> EvalResult {
     match function {
         Object::Function(params, body, env) => {
-            let mut new_env = extend_function_env(params, arguments, &env);
-            let evaluated = eval_block_statement(&body, &mut new_env)?;
+            let mut new_env = extend_function_env(params, arguments, env);
+            let evaluated = eval_block_statement(body, &mut new_env)?;
             unwrap_return_value(evaluated)
         }
         Object::BuiltIn(func) => func.apply(arguments),
@@ -164,8 +164,8 @@ fn eval_hash_literal(hash: &HashLiteral, env: &mut Environment) -> EvalResult {
     let mut map = IndexMap::new();
 
     for (k, v) in &hash.pairs {
-        let key = eval_expression(&k, env)?;
-        let value = eval_expression(&v, env)?;
+        let key = eval_expression(k, env)?;
+        let value = eval_expression(v, env)?;
         let hash_key = HashKey::from_object(&key)?;
         map.insert(hash_key, value);
     }
@@ -243,7 +243,7 @@ fn eval_infix_expression(
             eval_boolean_infix_expressions(operator, *left, *right)
         }
         (Object::String(left), Object::String(right)) => {
-            eval_string_infix_expression(operator, left.clone(), &*right)
+            eval_string_infix_expression(operator, left.clone(), right)
         }
         (left, right) => Err(EvalError::TypeMismatch(
             operator.clone(),
@@ -298,11 +298,11 @@ fn eval_if_expression(
     let test = eval_expression(condition, env)?;
 
     if test.is_truthy() {
-        return eval_block_statement(&consequence, env);
+        return eval_block_statement(consequence, env);
     }
 
     if let Some(alt) = alternative {
-        return eval_block_statement(&alt, env);
+        return eval_block_statement(alt, env);
     }
 
     Ok(Rc::new(Object::Null))

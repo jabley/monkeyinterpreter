@@ -41,7 +41,7 @@ impl Hash for Environment3 {
             v.hash(state);
         }
 
-        if let Some(env) = (&self.outer).as_ref() {
+        if let Some(env) = self.outer.as_ref() {
             env.borrow().hash(state)
         }
     }
@@ -54,7 +54,7 @@ impl PartialEq for Environment3 {
         }
 
         match (self.outer.as_ref(), other.outer.as_ref()) {
-            (Some(us), Some(them)) => us.eq(&them),
+            (Some(us), Some(them)) => us.eq(them),
             (None, None) => true,
             _ => false,
         }
@@ -154,7 +154,7 @@ impl PartialEq for Context {
         }
 
         match (self.next.as_ref(), other.next.as_ref()) {
-            (Some(us), Some(them)) => us.eq(&them),
+            (Some(us), Some(them)) => us.eq(them),
             (None, None) => true,
             _ => false,
         }

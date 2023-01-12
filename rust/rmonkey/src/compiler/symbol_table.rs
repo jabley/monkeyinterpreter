@@ -17,7 +17,7 @@ pub struct Symbol {
 }
 
 /// SymbolTable is a https://en.wikipedia.org/wiki/Symbol_table
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct SymbolTable {
     store: HashMap<String, Symbol>,
     num_definitions: usize,
@@ -119,17 +119,6 @@ impl SymbolTable {
 
     pub fn num_definitions(&self) -> usize {
         self.num_definitions
-    }
-}
-
-impl Default for SymbolTable {
-    fn default() -> Self {
-        SymbolTable {
-            store: Default::default(),
-            num_definitions: 0,
-            free_symbols: vec![],
-            outer: None,
-        }
     }
 }
 

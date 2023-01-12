@@ -76,7 +76,7 @@ impl fmt::Display for Object {
             Object::Integer(v) => write!(f, "{}", v),
             Object::Boolean(b) => write!(f, "{}", b),
             Object::CompiledFunction(compiled_function) => {
-                write!(f, "{}", compiled_function.to_string())
+                write!(f, "{}", compiled_function)
             }
             Object::Return(obj) => write!(f, "{}", obj),
             Object::Function(parameters, body, _) => {

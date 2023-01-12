@@ -6,8 +6,8 @@ fn main() {
     let mut env = Environment::new();
 
     match evaluator::eval(&program, &mut env) {
-        Ok(obj) => println!("Result: {}", obj.to_string()),
-        Err(e) => println!("Unexpected error: {}", e.to_string()),
+        Ok(obj) => println!("Result: {}", obj),
+        Err(e) => println!("Unexpected error: {}", e),
     }
 }
 
