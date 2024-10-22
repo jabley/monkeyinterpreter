@@ -1440,7 +1440,7 @@ mod tests {
             match compiler.compile(&program) {
                 Ok(bytecode) => {
                     expect_instructions(expected_instructions, &bytecode.instructions);
-                    expect_constants(expected_constants, bytecode.constants.borrow());
+                    expect_constants(expected_constants, bytecode.constants);
                 }
                 Err(e) => panic!("{}", e),
             }

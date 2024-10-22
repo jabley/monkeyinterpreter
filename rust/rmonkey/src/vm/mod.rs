@@ -2,7 +2,7 @@ pub mod frame;
 
 use crate::ast::InfixOperator;
 use crate::code::{self, Instructions, Op};
-use crate::object::{Closure, CompiledFunction, EvalError};
+use crate::object::{self, Closure, CompiledFunction, EvalError};
 use crate::object::{HashKey, Object};
 use crate::vm::frame::Frame;
 use indexmap::IndexMap;
@@ -357,7 +357,7 @@ impl<'a> VM<'a> {
         let builtin_index = self.read_u8(ip + 1) as u8;
         self.increment_ip(1);
 
-        let builtin = unsafe { ::std::mem::transmute(builtin_index) };
+        let builtin = unsafe { ::std::mem::transmute::<u8, object::builtins::BuiltIn>(builtin_index) };
 
         self.push(Rc::new(Object::BuiltIn(builtin)))
     }

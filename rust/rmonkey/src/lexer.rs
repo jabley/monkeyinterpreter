@@ -125,11 +125,11 @@ impl<'a> Lexer<'a> {
 }
 
 fn is_id_start(c: char) -> bool {
-    ('a'..='z').contains(&c) || ('A'..='Z').contains(&c) || c == '_'
+    c.is_ascii_lowercase() || c.is_ascii_uppercase() || c == '_'
 }
 
 fn is_id_continue(c: char) -> bool {
-    is_id_start(c) || ('0'..='9').contains(&c)
+    is_id_start(c) || c.is_ascii_digit()
 }
 
 #[cfg(test)]

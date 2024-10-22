@@ -102,7 +102,7 @@ impl SymbolTable {
     fn resolve_internal(&self, name: &str) -> (Option<Symbol>, bool) {
         let mut from_outer = false;
 
-        let res = match self.store.get(&name.to_string()) {
+        let res = match self.store.get(name) {
             Some(value) => Some(value.clone()),
             None => match &self.outer {
                 Some(symbol_table) => {
